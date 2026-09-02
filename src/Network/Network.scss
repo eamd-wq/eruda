@@ -64,7 +64,7 @@
     padding-top: 40px;
     background: var(--background);
     .control {
-      padding: 10px 35px;
+      padding: 10px 58px 10px 35px;
       border-bottom: 1px solid var(--border);
       .url {
         font-size: $font-size-s;
@@ -83,6 +83,45 @@
       }
       .icon-copy {
         right: 0;
+      }
+      .copy-menu-toggle {
+        right: 23px;
+      }
+      .copy-menu {
+        display: none;
+        position: absolute;
+        z-index: 1;
+        top: 36px;
+        right: 5px;
+        width: 180px;
+        padding: 4px 0;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--darker-background);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        font-size: $font-size;
+        line-height: 32px;
+        &.copy-menu-visible {
+          display: block;
+        }
+      }
+      .copy-menu-item {
+        padding: 0 12px;
+        color: var(--foreground);
+        cursor: pointer;
+        white-space: nowrap;
+        &:active {
+          color: var(--select-foreground);
+          background: var(--highlight);
+        }
+        &.copy-menu-item-disabled {
+          opacity: 0.5;
+          cursor: default;
+          &:active {
+            color: var(--foreground);
+            background: transparent;
+          }
+        }
       }
     }
     .http {
