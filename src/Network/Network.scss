@@ -64,7 +64,7 @@
     padding-top: 40px;
     background: var(--background);
     .control {
-      padding: 10px 58px 10px 35px;
+      padding: 10px 35px;
       border-bottom: 1px solid var(--border);
       .url {
         font-size: $font-size-s;
@@ -81,11 +81,8 @@
         left: 0;
         display: none;
       }
-      .icon-copy {
-        right: 0;
-      }
       .copy-menu-toggle {
-        right: 23px;
+        right: 0;
       }
       .copy-menu {
         display: none;

@@ -53,8 +53,11 @@ describe('network', function () {
       tool._detail.hide()
     })
 
-    it('keeps copy all', function () {
-      $('.eruda-copy-res').click()
+    it('keeps copy all in the menu without a standalone icon', function () {
+      expect($('.eruda-copy-res')).toHaveLength(0)
+
+      $('.eruda-copy-menu-toggle').click()
+      $('.eruda-copy-menu-item[data-copy-field="all"]').click()
 
       expect(copiedText).toBe(
         'POST https://example.com/api/users?name=eruda&enabled=true#section 200\n' +

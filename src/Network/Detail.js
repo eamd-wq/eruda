@@ -70,9 +70,6 @@ export default class Detail extends Emitter {
       <span class="${c(
         'icon-caret-down copy-menu-toggle',
       )}" title="Copy options" aria-label="Copy options"></span>
-      <span class="${c(
-        'icon-copy copy-res',
-      )}" title="Copy all" aria-label="Copy all"></span>
       <div class="${c('copy-menu')}" role="menu">
         ${this._renderCopyMenu(data)}
       </div>
@@ -116,9 +113,6 @@ export default class Detail extends Emitter {
       )}${disabledClass}" data-copy-field="${option.field}" role="menuitem" aria-disabled="${disabled}">${option.label}</div>`
     }).join('')
   }
-  _copyRes = () => {
-    this._copy('all')
-  }
   _copyField = (event) => {
     this._copy(event.curTarget.getAttribute('data-copy-field'))
   }
@@ -143,7 +137,6 @@ export default class Detail extends Emitter {
 
     this._$container
       .on('click', c('.back'), () => this.hide())
-      .on('click', c('.copy-res'), this._copyRes)
       .on('click', c('.copy-menu-toggle'), this._toggleCopyMenu)
       .on('click', c('.copy-menu-item'), this._copyField)
       .on('click', c('.http'), this._hideCopyMenu)
