@@ -116,8 +116,8 @@
       <h1>Eruda Network 详情功能验收</h1>
       <p class="lead">
         统一测试关键词为 <code>needle</code>。打开接口详情后，请从 JSON
-        正文区域起手上下滑动，并使用搜索栏的 ↑ / ↓ 或 Enter / Shift+Enter
-        定位结果。
+        正文区域起手上下滑动；点击顶部请求体或底部响应体可进入 Sources，再用 ↑ /
+        ↓ 或 Enter / Shift+Enter 定位深层字段。
       </p>
       <div class="meta">
         当前加载：<strong id="version">正在加载…</strong><br />
@@ -128,8 +128,13 @@
       <section class="grid" aria-label="Network 测试场景">
         <article class="card">
           <h2>标准长 JSON 详情</h2>
-          <p>直接打开同时含请求体、请求头、响应头和长响应体的详情。</p>
+          <p>点击顶部请求体，确认它与响应体一样可进入 Sources 对象树。</p>
           <button type="button" data-action="detail">打开测试详情</button>
+        </article>
+        <article class="card">
+          <h2>Sources 深层筛选</h2>
+          <p>搜索 needle，应只展开命中路径；清空或改词后路径仍保持展开。</p>
+          <button type="button" data-action="sources">打开深层 JSON</button>
         </article>
         <article class="card">
           <h2>真实 GET 请求</h2>
@@ -184,6 +189,7 @@
           },
         })
         eruda.show('network')
+        eruda.show()
         document.getElementById('version').textContent =
           `Eruda ${eruda.version}`
 
@@ -256,6 +262,29 @@
           setStatus('已打开标准长 JSON；现在可测试正文起滑和关键词定位。')
         }
 
+        function openSourcesSearch() {
+          eruda.get('sources').set('object', {
+            request: {
+              filters: {
+                keyword: KEYWORD,
+                nested: {
+                  targetField: KEYWORD + '-deep-request',
+                },
+              },
+            },
+            response: {
+              groups: createRows(18, 5),
+            },
+            unrelatedBranch: {
+              note: 'This branch should remain collapsed.',
+            },
+          })
+          eruda.show('sources')
+          setStatus(
+            '已打开深层对象；搜索 needle 后检查自动展开、上下定位和保持展开。',
+          )
+        }
+
         function openDenseDetail() {
           openDetail({
             method: 'POST',
@@ -323,6 +352,7 @@
 
         const actions = {
           detail: openStandardDetail,
+          sources: openSourcesSearch,
           get: () =>
             sendRequest('get?keyword=' + KEYWORD + '&page=1', {
               headers: { 'X-Eruda-Demo': 'real-get' },

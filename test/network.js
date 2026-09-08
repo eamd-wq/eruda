@@ -143,6 +143,38 @@ describe('network', function () {
       expect($('.eruda-response').text()).toBe('{\n  "ok": true\n}')
     })
 
+    it('opens JSON request data in Sources', function () {
+      const sources = eruda.get('sources')
+      spyOn(sources, 'set').and.callThrough()
+
+      $('.eruda-data').click()
+
+      expect(sources.set).toHaveBeenCalledWith('object', '{"enabled":true}')
+      expect($('.eruda-source-search')).toHaveLength(1)
+    })
+
+    it('opens form request data as raw source', function () {
+      const sources = eruda.get('sources')
+      spyOn(sources, 'set').and.callThrough()
+      tool._detail.show({
+        method: 'POST',
+        url: 'https://example.com/api/form',
+        status: 200,
+        data: 'keyword=needle&enabled=true',
+        reqHeaders: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        resHeaders: {},
+      })
+
+      $('.eruda-data').click()
+
+      expect(sources.set).toHaveBeenCalledWith(
+        'raw',
+        'keyword=needle&enabled=true',
+      )
+    })
+
     it('keeps body blocks out of the vertical scroll chain', function () {
       const dataStyle = getComputedStyle($('.eruda-data').get(0))
       const responseStyle = getComputedStyle($('.eruda-response').get(0))

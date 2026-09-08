@@ -333,6 +333,12 @@ export default class Detail extends Emitter {
       .on('keydown', c('.detail-search-input'), this._onSearchKeydown)
       .on('click', c('.detail-search-prev'), this._searchPrevious)
       .on('click', c('.detail-search-next'), this._searchNext)
+      .on('click', c('.http .data'), () => {
+        const requestData = this._detailData.data
+        if (!requestData) return
+
+        showSources(isJson(requestData) ? 'object' : 'raw', requestData)
+      })
       .on('click', c('.http .response'), () => {
         const data = this._detailData
         const resTxt = data.resTxt
