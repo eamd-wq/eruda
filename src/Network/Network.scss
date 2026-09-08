@@ -14,16 +14,13 @@
       font-size: $font-size;
     }
     .icon-clear {
-      left: 23px;
-    }
-    .icon-eye {
-      right: 0;
+      left: 40px;
     }
     .icon-copy {
-      right: 23px;
+      right: 0;
     }
     .icon-filter {
-      right: 46px;
+      right: 40px;
     }
     .filter-text {
       white-space: nowrap;
@@ -56,16 +53,21 @@
   .luna-data-grid {
     border-left: none;
     border-right: none;
+    td {
+      height: 32px;
+      padding-top: 5px;
+      padding-bottom: 5px;
+    }
   }
   .detail {
     @include absolute();
     z-index: 10;
     display: none;
-    padding-top: 76px;
+    padding-top: 80px;
     background: var(--background);
     .control {
       z-index: 2;
-      padding: 10px 35px;
+      padding: 10px 40px;
       border-bottom: 1px solid var(--border);
       .url {
         font-size: $font-size-s;
@@ -89,7 +91,7 @@
         display: none;
         position: absolute;
         z-index: 1;
-        top: 36px;
+        top: 40px;
         right: 5px;
         width: 180px;
         padding: 4px 0;
@@ -130,7 +132,7 @@
       display: flex;
       align-items: center;
       width: 100%;
-      height: 36px;
+      height: 40px;
       padding: 4px 6px;
       border-bottom: 1px solid var(--border);
       background: var(--darker-background);
@@ -142,7 +144,7 @@
       }
       .detail-search-input {
         min-width: 0;
-        height: 27px;
+        height: 32px;
         flex: 1;
         user-select: text;
         padding: 3px 7px;
@@ -166,16 +168,16 @@
         white-space: nowrap;
       }
       .detail-search-button {
-        width: 27px;
-        height: 27px;
+        width: 32px;
+        height: 32px;
         margin-left: 3px;
         padding: 0;
         border: 1px solid transparent;
         border-radius: 3px;
         color: var(--primary);
         background: transparent;
-        font-size: $font-size-l;
-        line-height: 25px;
+        font-size: 18px;
+        line-height: 30px;
         cursor: pointer;
         &:active:not(:disabled) {
           border-color: var(--border);
@@ -260,17 +262,14 @@
   #network {
     .network {
       .control {
-        .icon-eye {
-          display: none;
-        }
         .icon-copy {
           right: 0;
         }
         .icon-filter {
-          right: 23px;
+          right: 40px;
         }
         .filter-text {
-          right: 55px;
+          right: 88px;
         }
       }
     }

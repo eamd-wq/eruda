@@ -15,6 +15,73 @@ describe('network', function () {
         }, 500)
       })
     })
+
+    it('opens detail from the row and keeps only useful columns', function (done) {
+      tool.clear()
+      tool._reqWillBeSent({
+        requestId: 'row-detail-test',
+        timestamp: Date.now() / 1000,
+        request: {
+          url: 'https://example.com/api/row-detail',
+          method: 'GET',
+          headers: {},
+        },
+      })
+
+      setTimeout(function () {
+        const headers = $('.eruda-requests th')
+          .map(function () {
+            return $(this).text().trim()
+          })
+          .get()
+        const $row = $('.eruda-requests .luna-data-grid-node').last()
+
+        expect(headers).toEqual(['Name', 'Method', 'Status', 'Size', 'Time'])
+        expect($('.eruda-network .eruda-show-detail')).toHaveLength(0)
+        expect(parseFloat($row.find('td').eq(0).css('height'))).toBe(32)
+        expect($row).toHaveClass('luna-data-grid-selectable')
+
+        $row.get(0).dispatchEvent(new MouseEvent('click', { bubbles: true }))
+        expect(tool._requestDataGrid.selectedNode).toBe(
+          $row.get(0).dataGridNode,
+        )
+        expect(tool._selectedRequest.url).toBe(
+          'https://example.com/api/row-detail',
+        )
+        expect(tool._$detail.get(0).style.display).toBe('block')
+
+        tool._detail.hide()
+        $row.get(0).dispatchEvent(new MouseEvent('click', { bubbles: true }))
+        expect(tool._$detail.get(0).style.display).toBe('block')
+        tool._detail.hide()
+        done()
+      }, 50)
+    })
+
+    it('keeps virtual scrolling aligned with the larger rows', function (done) {
+      tool.clear()
+      for (let i = 0; i < 250; i++) {
+        tool._requestDataGrid.append(
+          {
+            name: `request-${i}`,
+            method: 'GET',
+            status: 200,
+            size: i,
+            time: '1ms',
+          },
+          { selectable: true },
+        )
+      }
+
+      setTimeout(function () {
+        expect(tool._requestDataGrid.spaceHeight).toBe(8000)
+        expect($('.eruda-requests .luna-data-grid-node').length).toBeLessThan(
+          250,
+        )
+        tool.clear()
+        done()
+      }, 50)
+    })
   })
 
   describe('detail copy', function () {

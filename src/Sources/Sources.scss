@@ -12,7 +12,7 @@
     display: flex;
     align-items: center;
     width: 100%;
-    height: 36px;
+    height: 40px;
     padding: 4px 6px;
     border-bottom: 1px solid var(--border);
     background: var(--darker-background);
@@ -24,7 +24,7 @@
     }
     .source-search-input {
       min-width: 0;
-      height: 27px;
+      height: 32px;
       flex: 1;
       user-select: text;
       padding: 3px 7px;
@@ -48,16 +48,16 @@
       white-space: nowrap;
     }
     .source-search-button {
-      width: 27px;
-      height: 27px;
+      width: 32px;
+      height: 32px;
       margin-left: 3px;
       padding: 0;
       border: 1px solid transparent;
       border-radius: 3px;
       color: var(--primary);
       background: transparent;
-      font-size: $font-size-l;
-      line-height: 25px;
+      font-size: 18px;
+      line-height: 30px;
       cursor: pointer;
       &:active:not(:disabled) {
         border-color: var(--border);

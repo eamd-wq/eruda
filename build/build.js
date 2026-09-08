@@ -14,10 +14,14 @@ fs.writeFile(
 )
 
 /**
- * Keep the canonical filename for compatibility and add a versioned bundle for
- * direct distribution.
+ * Keep the canonical filename for compatibility, add a versioned bundle for
+ * direct distribution, and provide a stable CDN entry for rolling releases.
  */
 copyFileSync(
   path.resolve(__dirname, '../dist/eruda.js'),
   path.resolve(__dirname, `../dist/eruda-${pkg.version}.js`),
+)
+copyFileSync(
+  path.resolve(__dirname, '../dist/eruda.js'),
+  path.resolve(__dirname, '../dist/eruda-latest.js'),
 )
