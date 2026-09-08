@@ -116,4 +116,91 @@ describe('network', function () {
       expect(document.execCommand).not.toHaveBeenCalled()
     })
   })
+
+  describe('detail content', function () {
+    beforeEach(function () {
+      tool._detail.show({
+        method: 'POST',
+        url: 'https://example.com/api/users',
+        status: 200,
+        data: '{"enabled":true}',
+        reqHeaders: {
+          'Content-Type': 'application/json',
+        },
+        resHeaders: {
+          'Content-Type': 'application/json',
+        },
+        resTxt: '{"ok":true}',
+      })
+    })
+
+    afterEach(function () {
+      tool._detail.hide()
+    })
+
+    it('formats request and response JSON for display', function () {
+      expect($('.eruda-data').text()).toBe('{\n  "enabled": true\n}')
+      expect($('.eruda-response').text()).toBe('{\n  "ok": true\n}')
+    })
+
+    it('keeps body blocks out of the vertical scroll chain', function () {
+      const dataStyle = getComputedStyle($('.eruda-data').get(0))
+      const responseStyle = getComputedStyle($('.eruda-response').get(0))
+
+      expect(dataStyle.overflowY).toBe('visible')
+      expect(responseStyle.overflowY).toBe('visible')
+    })
+
+    it('finds and navigates detail matches', function () {
+      $('.eruda-detail-search-input').val('true')
+      tool._detail._applySearch()
+
+      const $matches = $('.eruda-detail-search-match')
+      expect($matches).toHaveLength(2)
+      expect($('.eruda-detail-search-count').text()).toBe('1/2')
+      expect($matches.eq(0)).toHaveClass('eruda-detail-search-match-active')
+
+      $('.eruda-detail-search-next').click()
+      expect($('.eruda-detail-search-count').text()).toBe('2/2')
+      expect($matches.eq(1)).toHaveClass('eruda-detail-search-match-active')
+
+      $('.eruda-detail-search-prev').click()
+      expect($('.eruda-detail-search-count').text()).toBe('1/2')
+      expect($matches.eq(0)).toHaveClass('eruda-detail-search-match-active')
+    })
+
+    it('caps highlighted nodes for high-frequency matches', function () {
+      tool._detail.show({
+        method: 'POST',
+        url: 'https://example.com/api/search',
+        status: 200,
+        data: JSON.stringify({ value: Array(251).join('x') }),
+        reqHeaders: {},
+        resHeaders: {},
+      })
+
+      $('.eruda-detail-search-input').val('x')
+      tool._detail._applySearch()
+
+      expect($('.eruda-detail-search-match')).toHaveLength(200)
+      expect($('.eruda-detail-search-count').text()).toBe('1/200+')
+    })
+
+    it('skips JSON parsing and truncates oversized display bodies', function () {
+      const largeBody = '{"value":"' + Array(100002).join('x') + '"}'
+      spyOn(JSON, 'parse').and.callThrough()
+
+      tool._detail.show({
+        method: 'POST',
+        url: 'https://example.com/api/large',
+        status: 200,
+        data: largeBody,
+        reqHeaders: {},
+        resHeaders: {},
+      })
+
+      expect(JSON.parse).not.toHaveBeenCalled()
+      expect($('.eruda-data').text().length).not.toBeGreaterThan(100000)
+    })
+  })
 })
