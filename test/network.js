@@ -34,9 +34,13 @@ describe('network', function () {
             return $(this).text().trim()
           })
           .get()
+        const columnWeights = tool._requestDataGrid.options.columns.map(
+          (column) => column.weight,
+        )
         const $row = $('.eruda-requests .luna-data-grid-node').last()
 
         expect(headers).toEqual(['Name', 'Method', 'Status', 'Size', 'Time'])
+        expect(columnWeights).toEqual([45, 13, 10, 16, 16])
         expect($('.eruda-network .eruda-show-detail')).toHaveLength(0)
         expect(parseFloat($row.find('td').eq(0).css('height'))).toBe(32)
         expect($row).toHaveClass('luna-data-grid-selectable')

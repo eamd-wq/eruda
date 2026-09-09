@@ -45,19 +45,19 @@ export default class Network extends Tool {
           id: 'name',
           title: 'Name',
           sortable: true,
-          weight: 36,
+          weight: 45,
         },
         {
           id: 'method',
           title: 'Method',
           sortable: true,
-          weight: 16,
+          weight: 13,
         },
         {
           id: 'status',
           title: 'Status',
           sortable: true,
-          weight: 16,
+          weight: 10,
         },
         {
           id: 'size',
