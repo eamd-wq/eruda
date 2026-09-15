@@ -8,7 +8,14 @@ import isNull from 'licia/isNull'
 import trim from 'licia/trim'
 import copy from 'licia/copy'
 import emitter from '../lib/emitter'
-import { safeStorage, classPrefix as c } from '../lib/util'
+import { t } from '../lib/i18n'
+import { getGridColumns, refreshGridTitles } from './util'
+import {
+  safeStorage,
+  classPrefix as c,
+  setFirstTextNode,
+  showCopySuccess,
+} from '../lib/util'
 
 export default class Storage {
   constructor($container, devtools, resources, type) {
@@ -18,21 +25,11 @@ export default class Storage {
     this._resources = resources
     this._selectedItem = null
     this._storeData = []
+    this._titleKey = type === 'local' ? 'Local Storage' : 'Session Storage'
 
     this._initTpl()
     this._dataGrid = new LunaDataGrid(this._$dataGrid.get(0), {
-      columns: [
-        {
-          id: 'key',
-          title: 'Key',
-          weight: 30,
-        },
-        {
-          id: 'value',
-          title: 'Value',
-          weight: 90,
-        },
-      ],
+      columns: getGridColumns(),
       minHeight: 60,
       maxHeight: 223,
     })
@@ -41,6 +38,13 @@ export default class Storage {
   }
   destroy() {
     emitter.off(emitter.SCALE, this._updateGridHeight)
+  }
+  refreshLang() {
+    setFirstTextNode(
+      this._$container.find(c('.title')).get(0),
+      t(this._titleKey)
+    )
+    refreshGridTitles(this._dataGrid)
   }
   refresh() {
     const dataGrid = this._dataGrid
@@ -107,11 +111,10 @@ export default class Storage {
   }
   _initTpl() {
     const $container = this._$container
-    const type = this._type
 
     $container.html(
       c(`<h2 class="title">
-      ${type === 'local' ? 'Local' : 'Session'} Storage
+     ${t(this._titleKey)}
       <div class="btn refresh-storage">
         <span class="icon icon-refresh"></span>
       </div>
@@ -155,7 +158,7 @@ export default class Storage {
 
     this._$container
       .on('click', c('.refresh-storage'), () => {
-        devtools.notify('Refreshed', { icon: 'success' })
+        devtools.notify(t('Refreshed'), { icon: 'success' })
         this.refresh()
       })
       .on('click', c('.clear-storage'), () => {
@@ -181,10 +184,14 @@ export default class Storage {
       .on('click', c('.copy-storage'), () => {
         const key = this._selectedItem
         copy(this._getVal(key))
-        devtools.notify('Copied', { icon: 'success' })
+        const icon = this._$container
+          .find(c('.copy-storage'))
+          .find(c('.icon-copy'))
+          .get(0)
+        showCopySuccess(icon)
       })
       .on('click', c('.filter'), () => {
-        LunaModal.prompt('Filter').then((filter) => {
+        LunaModal.prompt(t('Filter')).then((filter) => {
           if (isNull(filter)) return
           filter = trim(filter)
           this._$filterText.text(filter)

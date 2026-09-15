@@ -6,7 +6,10 @@ import nextTick from 'licia/nextTick'
 import orientation from 'licia/orientation'
 import pointerEvent from 'licia/pointerEvent'
 import { pxToNum, classPrefix as c, eventClient } from '../lib/util'
+import { t } from '../lib/i18n'
 import evalCss from '../lib/evalCss'
+
+const CFG_SECTION = 'entry-button'
 
 const $document = $(document)
 
@@ -69,12 +72,15 @@ export default class EntryBtn extends Emitter {
     const $container = this._$container
 
     $container.append(
-      c(`<div class="entry-btn" role="button" aria-label="Open Eruda">
+      c(`<div class="entry-btn" role="button" aria-label="${t('Open Eruda')}">
         <span class="icon-tool" aria-hidden="true"></span>
         <span class="entry-label">Eruda</span>
       </div>`),
     )
     this._$el = $container.find('.eruda-entry-btn')
+  }
+  refreshLang() {
+    this._$el.attr('aria-label', t('Open Eruda'))
   }
   _resetPos(orientationChanged) {
     const cfg = this.config
@@ -166,7 +172,9 @@ export default class EntryBtn extends Emitter {
       pos: this._getDefPos(),
     }))
 
-    settings.switch(cfg, 'rememberPos', 'Remember Entry Button Position')
+    settings.addSection(CFG_SECTION, (settings) =>
+      settings.switch(cfg, 'rememberPos', t('Remember Entry Button Position'))
+    )
 
     this._resetPos()
   }

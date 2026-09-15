@@ -7,6 +7,12 @@ describe('devTools', function () {
     })
 
     it('init', function () {
+      /** 模拟旧版本已经把浮层高度保存为 100%。 */
+      window.localStorage.setItem(
+        'eruda-dev-tools',
+        JSON.stringify({ displaySize: 100 })
+      )
+
       let container = document.createElement('div')
       container.id = 'eruda'
       document.body.appendChild(container)
@@ -25,6 +31,8 @@ describe('devTools', function () {
       expect($eruda.find('.eruda-entry-btn .eruda-icon-tool')).toHaveCss({
         fontSize: '25px',
       })
+      expect(eruda.get().config.get('displaySize')).toBe(90)
+      expect($eruda.find('.eruda-dev-tools').get(0).style.height).toBe('90%')
     })
   })
 
@@ -59,6 +67,17 @@ describe('devTools', function () {
       eruda.show()
       expect($('.eruda-dev-tools')).toHaveCss({ display: 'block' })
       expect($('.eruda-backdrop')).toHaveCss({ display: 'block' })
+      expect(
+        $('.eruda-dev-tools').get(0).getBoundingClientRect().top
+      ).toBeGreaterThan(47)
+    })
+
+    it('prevents full-screen display size', function () {
+      const config = eruda.get().config
+      config.set('displaySize', 100)
+
+      expect(config.get('displaySize')).toBe(90)
+      expect($('.eruda-dev-tools').get(0).style.height).toBe('90%')
     })
 
     it('hide', function (done) {

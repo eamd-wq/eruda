@@ -7,6 +7,8 @@ import keys from 'licia/keys'
 import last from 'licia/last'
 import each from 'licia/each'
 import isNum from 'licia/isNum'
+import isNaN from 'licia/isNaN'
+import noop from 'licia/noop'
 import nextTick from 'licia/nextTick'
 import $ from 'licia/$'
 import toNum from 'licia/toNum'
@@ -20,6 +22,7 @@ import pointerEvent from 'licia/pointerEvent'
 import evalCss from '../lib/evalCss'
 import emitter from '../lib/emitter'
 import { isDarkTheme } from '../lib/themes'
+import { DEFAULT_LANG, LANGS, getLang, setLang, t } from '../lib/i18n'
 import LunaNotification from 'luna-notification'
 import LunaModal from 'luna-modal'
 import LunaTab from 'luna-tab'
@@ -30,6 +33,12 @@ import {
   safeStorage,
 } from '../lib/util'
 
+const DEFAULT_DISPLAY_SIZE = 80
+const MIN_DISPLAY_SIZE = 40
+const MAX_DISPLAY_SIZE = 90
+const SYSTEM_PREFERENCE = 'System preference'
+const DEV_TOOLS_SECTION = 'dev-tools'
+
 export default class DevTools extends Emitter {
   constructor($container, { defaults = {}, inline = false } = {}) {
     super()
@@ -37,8 +46,9 @@ export default class DevTools extends Emitter {
     this._defCfg = extend(
       {
         transparency: 1,
-        displaySize: 80,
-        theme: 'System preference',
+        displaySize: DEFAULT_DISPLAY_SIZE,
+        theme: SYSTEM_PREFERENCE,
+        lang: DEFAULT_LANG,
       },
       defaults,
     )
@@ -49,6 +59,7 @@ export default class DevTools extends Emitter {
     this._isShow = false
     this._opacity = 1
     this._tools = {}
+    this._settings = null
     this._isResizing = false
     this._resizeTimer = null
     this._showTimer = null
@@ -111,7 +122,7 @@ export default class DevTools extends Emitter {
 
     if (!(tool instanceof Tool)) {
       const { init, show, hide, destroy } = new Tool()
-      defaults(tool, { init, show, hide, destroy })
+      defaults(tool, { init, show, hide, destroy, refreshLang: noop })
     }
 
     const name = tool.name
@@ -129,16 +140,14 @@ export default class DevTools extends Emitter {
     tool.active = false
     this._tools[name] = tool
 
+    const tabItem = {
+      id: name,
+      title: t(name),
+    }
     if (name === 'settings') {
-      tab.append({
-        id: name,
-        title: name,
-      })
+      tab.append(tabItem)
     } else {
-      tab.insert(tab.length - 1, {
-        id: name,
-        title: name,
-      })
+      tab.insert(tab.length - 1, tabItem)
     }
 
     return this
@@ -202,45 +211,86 @@ export default class DevTools extends Emitter {
   }
   initCfg(settings) {
     const cfg = (this.config = Settings.createCfg('dev-tools', this._defCfg))
+    const savedDisplaySize = cfg.get('displaySize')
+    const displaySize = this._normalizeDisplaySize(savedDisplaySize)
+    const savedLang = cfg.get('lang')
+    const lang = this._normalizeLang(savedLang)
+
+    /** 历史版本允许保存 100%，初始化时主动迁移，宿主无需清理缓存。 */
+    if (!this._inline && displaySize !== savedDisplaySize) {
+      cfg.set('displaySize', displaySize)
+    }
+    /** 非法语言同样在初始化时迁移，避免设置面板出现空选项。 */
+    if (lang !== savedLang) cfg.set('lang', lang)
+
+    const prevLang = getLang()
+    setLang(lang)
+    this._settings = settings
 
     this._setTransparency(cfg.get('transparency'))
-    this._setDisplaySize(cfg.get('displaySize'))
+    this._setDisplaySize(displaySize)
     this._setTheme(cfg.get('theme'))
 
     cfg.on('change', (key, val) => {
       switch (key) {
         case 'transparency':
           return this._setTransparency(val)
-        case 'displaySize':
-          return this._setDisplaySize(val)
+        case 'displaySize': {
+          const displaySize = this._normalizeDisplaySize(val)
+          if (!this._inline && displaySize !== val) {
+            return cfg.set('displaySize', displaySize)
+          }
+          return this._setDisplaySize(displaySize)
+        }
+        case 'lang': {
+          const lang = this._normalizeLang(val)
+          if (lang !== val) {
+            return cfg.set('lang', lang)
+          }
+          setLang(lang)
+          return this._refreshLang()
+        }
         case 'theme':
           return this._setTheme(val)
       }
     })
 
+    settings.addSection(DEV_TOOLS_SECTION, (settings) =>
+      this._renderCfg(settings, cfg)
+    )
+
+    /** 分区渲染时用的是默认语言，宿主配置了其他语言时需要重绘一次。 */
+    if (prevLang !== getLang()) this._refreshLang()
+  }
+  _renderCfg(settings, cfg) {
+    const langOptions = {}
+    each(LANGS, (label, code) => (langOptions[label] = code))
+
+    const themeOptions = {}
+    themeOptions[t(SYSTEM_PREFERENCE)] = SYSTEM_PREFERENCE
+    each(keys(evalCss.getThemes()), (name) => (themeOptions[name] = name))
+
     settings
       .separator()
-      .select(cfg, 'theme', 'Theme', [
-        'System preference',
-        ...keys(evalCss.getThemes()),
-      ])
+      .select(cfg, 'lang', t('Language'), langOptions)
+      .select(cfg, 'theme', t('Theme'), themeOptions)
 
     if (!this._inline) {
       settings
-        .range(cfg, 'transparency', 'Transparency', {
+        .range(cfg, 'transparency', t('Transparency'), {
           min: 0.2,
           max: 1,
           step: 0.01,
         })
-        .range(cfg, 'displaySize', 'Display Size', {
-          min: 40,
-          max: 100,
+        .range(cfg, 'displaySize', t('Display Size'), {
+          min: MIN_DISPLAY_SIZE,
+          max: MAX_DISPLAY_SIZE,
           step: 1,
         })
     }
 
     settings
-      .button('Restore defaults and reload', function () {
+      .button(t('Restore defaults and reload'), function () {
         const store = safeStorage('local')
 
         const data = JSON.parse(JSON.stringify(store))
@@ -257,6 +307,27 @@ export default class DevTools extends Emitter {
         window.location.reload()
       })
       .separator()
+  }
+  /** 语言切换后重绘标签页、设置面板与各面板自身的静态文案。 */
+  _refreshLang() {
+    this._$backdrop.attr('aria-label', t('Close Eruda'))
+    this._refreshTabTitles()
+
+    if (this._settings) this._settings.renderAll()
+    each(this._tools, (tool) => tool.refreshLang())
+
+    this.emit('langChange', getLang())
+  }
+  /** LunaTab 没有更新标题的接口，标签页的 data-id 即工具名，按需改写文本。 */
+  _refreshTabTitles() {
+    const tools = this._tools
+
+    this._$el.find('.luna-tab-item').each(function () {
+      const $item = $(this)
+      const name = $item.data('id')
+
+      if (tools[name]) $item.find('.luna-tab-title').text(t(name))
+    })
   }
   notify(content, options) {
     this._notification.notify(content, options)
@@ -281,25 +352,36 @@ export default class DevTools extends Emitter {
       $container.rmClass(c('safe-area'))
     }
   }
-  _setTheme(t) {
+  _setTheme(themeName) {
     const { $container } = this
 
-    if (t === 'System preference') {
-      t = upperFirst(theme.get())
+    if (themeName === SYSTEM_PREFERENCE) {
+      themeName = upperFirst(theme.get())
     }
 
-    if (isDarkTheme(t)) {
+    if (isDarkTheme(themeName)) {
       $container.addClass(c('dark'))
     } else {
       $container.rmClass(c('dark'))
     }
-    evalCss.setTheme(t)
+    evalCss.setTheme(themeName)
   }
   _setTransparency(opacity) {
     if (!isNum(opacity)) return
 
     this._opacity = opacity
     if (this._isShow) this._$el.css({ opacity })
+  }
+  /**
+   * 浮层模式禁止达到 100%，同时修正历史缓存中的越界或非法值。
+   */
+  _normalizeDisplaySize(height) {
+    if (!isNum(height) || isNaN(height)) return DEFAULT_DISPLAY_SIZE
+
+    if (height < MIN_DISPLAY_SIZE) return MIN_DISPLAY_SIZE
+    if (height > MAX_DISPLAY_SIZE) return MAX_DISPLAY_SIZE
+
+    return height
   }
   _setDisplaySize(height) {
     if (this._inline) {
@@ -310,12 +392,16 @@ export default class DevTools extends Emitter {
 
     this._$el.css({ height: height + '%' })
   }
+  /** 非法语言回退默认值，避免设置面板出现空选项。 */
+  _normalizeLang(lang) {
+    return LANGS[lang] ? lang : DEFAULT_LANG
+  }
   _initTpl() {
     const $container = this.$container
 
     $container.append(
       c(`
-      <div class="backdrop" role="button" aria-label="Close Eruda"></div>
+      <div class="backdrop" role="button" aria-label="${t('Close Eruda')}"></div>
       <div class="dev-tools">
         <div class="resizer"></div>
         <div class="tab"></div>
@@ -392,10 +478,10 @@ export default class DevTools extends Emitter {
       const deltaY =
         ((this._resizeStartY - eventClient('y', e)) / window.innerHeight) * 100
       let displaySize = this._resizeStartSize + deltaY
-      if (displaySize < 40) {
-        displaySize = 40
-      } else if (displaySize > 100) {
-        displaySize = 100
+      if (displaySize < MIN_DISPLAY_SIZE) {
+        displaySize = MIN_DISPLAY_SIZE
+      } else if (displaySize > MAX_DISPLAY_SIZE) {
+        displaySize = MAX_DISPLAY_SIZE
       }
       this.config.set('displaySize', toNum(displaySize.toFixed(2)))
     }
@@ -418,9 +504,9 @@ export default class DevTools extends Emitter {
     emitter.on(emitter.SCALE, this._updateTabHeight)
 
     theme.on('change', () => {
-      const t = this.config.get('theme')
-      if (t === 'System preference') {
-        this._setTheme(t)
+      const themeName = this.config.get('theme')
+      if (themeName === SYSTEM_PREFERENCE) {
+        this._setTheme(themeName)
       }
     })
   }

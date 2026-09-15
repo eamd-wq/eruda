@@ -8,7 +8,8 @@ import isJson from 'licia/isJson'
 import escapeRegExp from 'licia/escapeRegExp'
 import Emitter from 'licia/Emitter'
 import truncate from 'licia/truncate'
-import { classPrefix as c } from '../lib/util'
+import { t } from '../lib/i18n'
+import { classPrefix as c, showCopySuccess } from '../lib/util'
 
 export default class Detail extends Emitter {
   constructor($container, devtools) {
@@ -43,7 +44,7 @@ export default class Detail extends Emitter {
       )}</pre>`
     }
 
-    let reqHeaders = '<tr><td>Empty</td></tr>'
+    let reqHeaders = `<tr><td>${t('Empty')}</td></tr>`
     if (data.reqHeaders) {
       reqHeaders = map(data.reqHeaders, (val, key) => {
         return `<tr>
@@ -53,7 +54,7 @@ export default class Detail extends Emitter {
       }).join('')
     }
 
-    let resHeaders = '<tr><td>Empty</td></tr>'
+    let resHeaders = `<tr><td>${t('Empty')}</td></tr>`
     if (data.resHeaders) {
       resHeaders = map(data.resHeaders, (val, key) => {
         return `<tr>
@@ -76,7 +77,9 @@ export default class Detail extends Emitter {
       <span class="${c('url')}">${escape(data.url)}</span>
       <span class="${c(
         'icon-caret-down copy-menu-toggle',
-      )}" title="Copy options" aria-label="Copy options"></span>
+      )}" title="${t('Copy options')}" aria-label="${t(
+        'Copy options',
+      )}"></span>
       <div class="${c('copy-menu')}" role="menu">
         ${this._renderCopyMenu(data)}
       </div>
@@ -85,19 +88,27 @@ export default class Detail extends Emitter {
       <span class="${c('icon-search detail-search-icon')}" aria-hidden="true"></span>
       <input class="${c(
         'detail-search-input',
-      )}" type="search" placeholder="Find in details" aria-label="Find in network details" autocomplete="off" spellcheck="false">
+      )}" type="search" placeholder="${t(
+        'Find in details',
+      )}" aria-label="${t(
+        'Find in network details',
+      )}" autocomplete="off" spellcheck="false">
       <span class="${c('detail-search-count')}" aria-live="polite">0/0</span>
       <button class="${c(
         'detail-search-button detail-search-prev',
-      )}" type="button" title="Previous match" aria-label="Previous match" disabled>&uarr;</button>
+      )}" type="button" title="${t(
+        'Previous match',
+      )}" aria-label="${t('Previous match')}" disabled>&uarr;</button>
       <button class="${c(
         'detail-search-button detail-search-next',
-      )}" type="button" title="Next match" aria-label="Next match" disabled>&darr;</button>
+      )}" type="button" title="${t(
+        'Next match',
+      )}" aria-label="${t('Next match')}" disabled>&darr;</button>
     </div>
     <div class="${c('http')}">
       ${postData}
       <div class="${c('section')}">
-        <h2>Response Headers</h2>
+        <h2>${t('Response Headers')}</h2>
         <table class="${c('headers')}">
           <tbody>
             ${resHeaders}
@@ -105,7 +116,7 @@ export default class Detail extends Emitter {
         </table>
       </div>
       <div class="${c('section')}">
-        <h2>Request Headers</h2>
+        <h2>${t('Request Headers')}</h2>
         <table class="${c('headers')}">
           <tbody>
             ${reqHeaders}
@@ -124,6 +135,12 @@ export default class Detail extends Emitter {
     this._$container.hide()
     this.emit('hide')
   }
+  /** 语言切换后按当前请求重绘，搜索状态随重绘一并重置。 */
+  refreshLang() {
+    if (isEmpty(this._detailData)) return
+
+    this.show(this._detailData)
+  }
   _renderCopyMenu(data) {
     return map(COPY_OPTIONS, (option) => {
       const disabled = getCopyText(data, option.field) === ''
@@ -131,7 +148,9 @@ export default class Detail extends Emitter {
 
       return `<div class="${c(
         'copy-menu-item',
-      )}${disabledClass}" data-copy-field="${option.field}" role="menuitem" aria-disabled="${disabled}">${option.label}</div>`
+      )}${disabledClass}" data-copy-field="${option.field}" role="menuitem" aria-disabled="${disabled}">${t(
+        option.label,
+      )}</div>`
     }).join('')
   }
   _copyField = (event) => {
@@ -143,7 +162,7 @@ export default class Detail extends Emitter {
 
     copy(data)
     this._hideCopyMenu()
-    this._devtools.notify('Copied', { icon: 'success' })
+    showCopySuccess(this._$container.find(c('.copy-menu-toggle')).get(0))
   }
   _toggleCopyMenu = () => {
     this._$container.find(c('.copy-menu')).toggleClass(c('copy-menu-visible'))
@@ -313,7 +332,9 @@ export default class Detail extends Emitter {
     $count.text(`${current}/${total}`)
     $count.attr(
       'title',
-      limited ? `Showing the first ${len} of ${this._searchTotal} matches` : '',
+      limited
+        ? t('Showing the first {0} of {1} matches', len, this._searchTotal)
+        : '',
     )
     if (len === 0) {
       $buttons.attr('disabled', 'disabled')

@@ -73,7 +73,7 @@ describe('info', function () {
     })
 
     it('system', function () {
-      expect($tool.find('.eruda-content').eq(3)).toContainText('os')
+      expect($tool.find('.eruda-content').eq(3)).toContainText('操作系统')
     })
 
     it('sponsor', function () {

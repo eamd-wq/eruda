@@ -5,9 +5,10 @@ import each from 'licia/each'
 import copy from 'licia/copy'
 import LunaModal from 'luna-modal'
 import LunaDataGrid from 'luna-data-grid'
-import { setState, getState } from './util'
+import { setState, getState, getGridColumns, refreshGridTitles } from './util'
 import chobitsu from '../lib/chobitsu'
-import { classPrefix as c } from '../lib/util'
+import { t } from '../lib/i18n'
+import { classPrefix as c, showCopySuccess } from '../lib/util'
 
 export default class Cookie {
   constructor($container, devtools) {
@@ -17,23 +18,15 @@ export default class Cookie {
 
     this._initTpl()
     this._dataGrid = new LunaDataGrid(this._$dataGrid.get(0), {
-      columns: [
-        {
-          id: 'key',
-          title: 'Key',
-          weight: 30,
-        },
-        {
-          id: 'value',
-          title: 'Value',
-          weight: 90,
-        },
-      ],
+      columns: getGridColumns(),
       minHeight: 60,
       maxHeight: 223,
     })
 
     this._bindEvent()
+  }
+  refreshLang() {
+    refreshGridTitles(this._dataGrid)
   }
   refresh() {
     const $container = this._$container
@@ -126,7 +119,7 @@ export default class Cookie {
 
     this._$container
       .on('click', c('.refresh-cookie'), () => {
-        devtools.notify('Refreshed', { icon: 'success' })
+        devtools.notify(t('Refreshed'), { icon: 'success' })
         this.refresh()
       })
       .on('click', c('.clear-cookie'), () => {
@@ -154,10 +147,14 @@ export default class Cookie {
       .on('click', c('.copy-cookie'), () => {
         const key = this._selectedItem
         copy(this._getVal(key))
-        devtools.notify('Copied', { icon: 'success' })
+        const icon = this._$container
+          .find(c('.copy-cookie'))
+          .find(c('.icon-copy'))
+          .get(0)
+        showCopySuccess(icon)
       })
       .on('click', c('.filter'), () => {
-        LunaModal.prompt('Filter').then((filter) => {
+        LunaModal.prompt(t('Filter')).then((filter) => {
           if (isNull(filter)) return
           filter = trim(filter)
           this._filter = filter

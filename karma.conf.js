@@ -30,6 +30,7 @@ module.exports = function (config) {
       'test/snippets.js',
       'test/sources.js',
       'test/settings.js',
+      'test/i18n.js',
       'test/eruda.js',
     ],
     plugins: [

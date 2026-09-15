@@ -43,6 +43,18 @@
       font-weight: normal;
     }
   }
+  .copy-success {
+    color: #188037 !important;
+    transition: none !important;
+    &:before {
+      content: '\2713' !important;
+      font-family: $font-family !important;
+      font-weight: 700;
+    }
+  }
+  &.dark .copy-success {
+    color: #81c995 !important;
+  }
   &.inline {
     position: static;
   }

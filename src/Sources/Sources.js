@@ -9,10 +9,14 @@ import truncate from 'licia/truncate'
 import replaceAll from 'licia/replaceAll'
 import highlight from 'licia/highlight'
 import trim from 'licia/trim'
+import upperFirst from 'licia/upperFirst'
 import escapeRegExp from 'licia/escapeRegExp'
 import LunaTextViewer from 'luna-text-viewer'
 import evalCss from '../lib/evalCss'
+import { t } from '../lib/i18n'
 import { classPrefix as c } from '../lib/util'
+
+const CFG_SECTION = 'sources'
 
 export default class Sources extends Tool {
   constructor() {
@@ -106,7 +110,7 @@ export default class Sources extends Tool {
     ajax({
       url: location.href,
       success: (data) => (this._html = data),
-      error: () => (this._html = 'Sorry, unable to fetch source code:('),
+      error: () => (this._html = t('Sorry, unable to fetch source code:(')),
       complete: () => {
         this._isGettingHtml = false
         this._renderDef()
@@ -128,16 +132,14 @@ export default class Sources extends Tool {
       .on('click', c('.source-search-next'), this._searchNext)
   }
   _rmCfg() {
-    const cfg = this.config
-
     const settings = this._container.get('settings')
 
     if (!settings) return
 
-    settings.remove(cfg, 'showLineNum').remove('Sources')
+    settings.removeSection(CFG_SECTION)
   }
   _initCfg() {
-    const cfg = (this.config = Settings.createCfg('sources', {
+    const cfg = (this.config = Settings.createCfg(CFG_SECTION, {
       showLineNum: true,
     }))
 
@@ -152,10 +154,16 @@ export default class Sources extends Tool {
     })
 
     const settings = this._container.get('settings')
-    settings
-      .text('Sources')
-      .switch(cfg, 'showLineNum', 'Show Line Numbers')
-      .separator()
+    settings.addSection(CFG_SECTION, (settings) =>
+      settings
+        .text(upperFirst(t(this.name)))
+        .switch(cfg, 'showLineNum', t('Show Line Numbers'))
+        .separator()
+    )
+  }
+  /** 只有对象视图带界面文案，其他视图重新渲染没有意义。 */
+  refreshLang() {
+    if (this._data && this._data.type === 'object') this._render()
   }
   _render() {
     this._isInit = true
@@ -238,14 +246,22 @@ export default class Sources extends Tool {
         )}" aria-hidden="true"></span>
         <input class="${c(
           'source-search-input',
-        )}" type="search" placeholder="Find in JSON" aria-label="Find in JSON source" autocomplete="off" spellcheck="false">
+        )}" type="search" placeholder="${t(
+          'Find in JSON',
+        )}" aria-label="${t(
+          'Find in JSON source',
+        )}" autocomplete="off" spellcheck="false">
         <span class="${c('source-search-count')}" aria-live="polite">0/0</span>
         <button class="${c(
           'source-search-button source-search-prev',
-        )}" type="button" title="Previous match" aria-label="Previous match" disabled>&uarr;</button>
+        )}" type="button" title="${t(
+          'Previous match',
+        )}" aria-label="${t('Previous match')}" disabled>&uarr;</button>
         <button class="${c(
           'source-search-button source-search-next',
-        )}" type="button" title="Next match" aria-label="Next match" disabled>&darr;</button>
+        )}" type="button" title="${t(
+          'Next match',
+        )}" aria-label="${t('Next match')}" disabled>&darr;</button>
       </div>
       <ul class="${c('json')}"></ul>`,
       false,
@@ -511,7 +527,7 @@ export default class Sources extends Tool {
     $count.text(`${current}/${total}`)
     $count.attr(
       'title',
-      limited ? 'Search stopped at the safe result limit' : '',
+      limited ? t('Search stopped at the safe result limit') : '',
     )
     if (len === 0) {
       $buttons.attr('disabled', 'disabled')

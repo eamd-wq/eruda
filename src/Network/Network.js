@@ -5,7 +5,7 @@ import each from 'licia/each'
 import map from 'licia/map'
 import Detail from './Detail'
 import throttle from 'licia/throttle'
-import { getFileName, classPrefix as c } from '../lib/util'
+import { getFileName, classPrefix as c, showCopySuccess, refreshDataGridTitles } from '../lib/util'
 import evalCss from '../lib/evalCss'
 import chobitsu from '../lib/chobitsu'
 import emitter from '../lib/emitter'
@@ -18,7 +18,17 @@ import extend from 'licia/extend'
 import trim from 'licia/trim'
 import isNull from 'licia/isNull'
 import LunaModal from 'luna-modal'
+import { t } from '../lib/i18n'
 import { curlStr } from './util'
+
+/** 列标题的英文原文同时作为词条 key，语言切换时按此重新取词条。 */
+const COLUMNS = [
+  { id: 'name', title: 'Name', sortable: true, weight: 45 },
+  { id: 'method', title: 'Method', sortable: true, weight: 13 },
+  { id: 'status', title: 'Status', sortable: true, weight: 10 },
+  { id: 'size', title: 'Size', sortable: true, weight: 16 },
+  { id: 'time', title: 'Time', sortable: true, weight: 16 },
+]
 
 export default class Network extends Tool {
   constructor() {
@@ -40,38 +50,9 @@ export default class Network extends Tool {
     this._splitMediaQuery = new MediaQuery('screen and (min-width: 680px)')
     this._splitMode = this._splitMediaQuery.isMatch()
     this._requestDataGrid = new NetworkDataGrid(this._$requests.get(0), {
-      columns: [
-        {
-          id: 'name',
-          title: 'Name',
-          sortable: true,
-          weight: 45,
-        },
-        {
-          id: 'method',
-          title: 'Method',
-          sortable: true,
-          weight: 13,
-        },
-        {
-          id: 'status',
-          title: 'Status',
-          sortable: true,
-          weight: 10,
-        },
-        {
-          id: 'size',
-          title: 'Size',
-          sortable: true,
-          weight: 16,
-        },
-        {
-          id: 'time',
-          title: 'Time',
-          sortable: true,
-          weight: 16,
-        },
-      ],
+      columns: map(COLUMNS, (column) =>
+        extend({}, column, { title: t(column.title) })
+      ),
     })
     this._resizeSensor = new ResizeSensor($el.get(0))
     this._bindEvent()
@@ -79,6 +60,16 @@ export default class Network extends Tool {
   show() {
     super.show()
     this._updateDataGridHeight()
+  }
+  /** LunaDataGrid 只在初始化时渲染表头，语言切换后按原顺序就地更新列标题。 */
+  refreshLang() {
+    const columns = this._requestDataGrid.getOption('columns')
+
+    each(columns, (column, idx) => (column.title = t(COLUMNS[idx].title)))
+    refreshDataGridTitles(this._requestDataGrid, columns)
+
+    /** 详情关闭时不应被重绘重新打开。 */
+    if (this._$detail.css('display') !== 'none') this._detail.refreshLang()
   }
   clear() {
     this._requests = {}
@@ -237,7 +228,7 @@ export default class Network extends Tool {
       }),
     )
 
-    this._container.notify('Copied', { icon: 'success' })
+    showCopySuccess(this._$control.find(c('.copy-curl')).get(0))
   }
   _updateButtons() {
     const $control = this._$control
@@ -274,7 +265,7 @@ export default class Network extends Tool {
       .on('click', c('.copy-curl'), this._copyCurl)
       .on('click', c('.record'), this._toggleRecording)
       .on('click', c('.filter'), () => {
-        LunaModal.prompt('Filter').then((filter) => {
+        LunaModal.prompt(t('Filter')).then((filter) => {
           if (isNull(filter)) return
 
           $filterText.text(filter)

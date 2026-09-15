@@ -39,7 +39,7 @@ describe('network', function () {
         )
         const $row = $('.eruda-requests .luna-data-grid-node').last()
 
-        expect(headers).toEqual(['Name', 'Method', 'Status', 'Size', 'Time'])
+        expect(headers).toEqual(['名称', '方法', '状态', '大小', '耗时'])
         expect(columnWeights).toEqual([45, 13, 10, 16, 16])
         expect($('.eruda-network .eruda-show-detail')).toHaveLength(0)
         expect(parseFloat($row.find('td').eq(0).css('height'))).toBe(32)
@@ -163,6 +163,27 @@ describe('network', function () {
         expect(copiedText).toBe(expectedValues[field])
         expect($('.eruda-copy-menu')).not.toHaveClass('eruda-copy-menu-visible')
       })
+    })
+
+    it('shows temporary success icon without notification', function () {
+      jasmine.clock().install()
+      try {
+        const notify = spyOn(tool._container, 'notify')
+        const $toggle = $('.eruda-copy-menu-toggle')
+
+        $toggle.click()
+        $('.eruda-copy-menu-item[data-copy-field="url"]').click()
+
+        expect($toggle).toHaveClass('eruda-copy-success')
+        expect(notify).not.toHaveBeenCalled()
+
+        jasmine.clock().tick(1499)
+        expect($toggle).toHaveClass('eruda-copy-success')
+        jasmine.clock().tick(1)
+        expect($toggle).not.toHaveClass('eruda-copy-success')
+      } finally {
+        jasmine.clock().uninstall()
+      }
     })
 
     it('disables fields without copyable content', function () {

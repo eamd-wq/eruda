@@ -9,13 +9,17 @@ declare module 'eruda' {
      */
     transparency?: number
     /**
-     * Display size, 0 to 100
+     * Display size. Floating mode is limited to 40-90; inline mode fills its container.
      */
     displaySize?: number
     /**
      * Theme, defaults to Light or Dark in dark mode
      */
     theme?: string
+    /**
+     * Interface language, defaults to zh. Available: zh, en
+     */
+    lang?: string
   }
 
   export interface InitOptions {

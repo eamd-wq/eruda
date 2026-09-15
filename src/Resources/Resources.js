@@ -12,11 +12,15 @@ import MutationObserver from 'licia/MutationObserver'
 import toArr from 'licia/toArr'
 import concat from 'licia/concat'
 import map from 'licia/map'
+import upperFirst from 'licia/upperFirst'
 import { isErudaEl, classPrefix as c } from '../lib/util'
+import { t } from '../lib/i18n'
 import evalCss from '../lib/evalCss'
 import Storage from './Storage'
 import Cookie from './Cookie'
 import { setState, getState } from './util'
+
+const CFG_SECTION = 'resources'
 
 export default class Resources extends Tool {
   constructor() {
@@ -52,6 +56,14 @@ export default class Resources extends Tool {
     this._initObserver()
     this._initCfg()
   }
+  /** 各分区的标题都随语言变化，重绘整份列表即可。 */
+  refreshLang() {
+    this._localStorage.refreshLang()
+    this._sessionStorage.refreshLang()
+    this._cookie.refreshLang()
+
+    return this.refresh()
+  }
   refresh() {
     return this.refreshLocalStorage()
       .refreshSessionStorage()
@@ -82,7 +94,7 @@ export default class Resources extends Tool {
     scriptData = unique(scriptData)
 
     const scriptState = getState('script', scriptData.length)
-    let scriptDataHtml = '<li>Empty</li>'
+    let scriptDataHtml = `<li>${t('Empty')}</li>`
     if (!isEmpty(scriptData)) {
       scriptDataHtml = map(scriptData, (script) => {
         script = escape(script)
@@ -93,7 +105,7 @@ export default class Resources extends Tool {
     }
 
     const scriptHtml = `<h2 class="${c('title')}">
-      Script
+      ${t('Script')}
       <div class="${c('btn refresh-script')}">
         <span class="${c('icon-refresh')}"></span>
       </div>
@@ -120,7 +132,7 @@ export default class Resources extends Tool {
     stylesheetData = unique(stylesheetData)
 
     const stylesheetState = getState('stylesheet', stylesheetData.length)
-    let stylesheetDataHtml = '<li>Empty</li>'
+    let stylesheetDataHtml = `<li>${t('Empty')}</li>`
     if (!isEmpty(stylesheetData)) {
       stylesheetDataHtml = map(stylesheetData, (stylesheet) => {
         stylesheet = escape(stylesheet)
@@ -131,7 +143,7 @@ export default class Resources extends Tool {
     }
 
     const stylesheetHtml = `<h2 class="${c('title')}">
-      Stylesheet
+      ${t('Stylesheet')}
       <div class="${c('btn refresh-stylesheet')}">
         <span class="${c('icon-refresh')}"></span>
       </div>
@@ -158,7 +170,7 @@ export default class Resources extends Tool {
 
     iframeData = unique(iframeData)
 
-    let iframeDataHtml = '<li>Empty</li>'
+    let iframeDataHtml = `<li>${t('Empty')}</li>`
     if (!isEmpty(iframeData)) {
       iframeDataHtml = map(iframeData, (iframe) => {
         iframe = escape(iframe)
@@ -168,7 +180,7 @@ export default class Resources extends Tool {
       }).join('')
     }
     const iframeHtml = `<h2 class="${c('title')}">
-      Iframe
+      ${t('Iframe')}
       <div class="${c('btn refresh-iframe')}">
         <span class="${c('icon-refresh')}"></span>
       </div>
@@ -228,7 +240,7 @@ export default class Resources extends Tool {
     imageData.sort()
 
     const imageState = getState('image', imageData.length)
-    let imageDataHtml = '<li>Empty</li>'
+    let imageDataHtml = `<li>${t('Empty')}</li>`
     if (!isEmpty(imageData)) {
       // prettier-ignore
       imageDataHtml = map(imageData, (image) => {
@@ -239,7 +251,7 @@ export default class Resources extends Tool {
     }
 
     const imageHtml = `<h2 class="${c('title')}">
-      Image
+      ${t('Image')}
       <div class="${c('btn refresh-image')}">
         <span class="${c('icon-refresh')}"></span>
       </div>
@@ -290,19 +302,19 @@ export default class Resources extends Tool {
 
     $el
       .on('click', '.eruda-refresh-script', () => {
-        container.notify('Refreshed', { icon: 'success' })
+        container.notify(t('Refreshed'), { icon: 'success' })
         this.refreshScript()
       })
       .on('click', '.eruda-refresh-stylesheet', () => {
-        container.notify('Refreshed', { icon: 'success' })
+        container.notify(t('Refreshed'), { icon: 'success' })
         this.refreshStylesheet()
       })
       .on('click', '.eruda-refresh-iframe', () => {
-        container.notify('Refreshed', { icon: 'success' })
+        container.notify(t('Refreshed'), { icon: 'success' })
         this.refreshIframe()
       })
       .on('click', '.eruda-refresh-image', () => {
-        container.notify('Refreshed', { icon: 'success' })
+        container.notify(t('Refreshed'), { icon: 'success' })
         this.refreshImage()
       })
       .on('click', '.eruda-img-link', function () {
@@ -347,19 +359,14 @@ export default class Resources extends Tool {
     }
   }
   _rmCfg() {
-    const cfg = this.config
-
     const settings = this._container.get('settings')
 
     if (!settings) return
 
-    settings
-      .remove(cfg, 'hideErudaSetting')
-      .remove(cfg, 'observeElement')
-      .remove('Resources')
+    settings.removeSection(CFG_SECTION)
   }
   _initCfg() {
-    const cfg = (this.config = Settings.createCfg('resources', {
+    const cfg = (this.config = Settings.createCfg(CFG_SECTION, {
       hideErudaSetting: true,
       observeElement: true,
     }))
@@ -379,11 +386,13 @@ export default class Resources extends Tool {
     })
 
     const settings = this._container.get('settings')
-    settings
-      .text('Resources')
-      .switch(cfg, 'hideErudaSetting', 'Hide Eruda Setting')
-      .switch(cfg, 'observeElement', 'Auto Refresh Elements')
-      .separator()
+    settings.addSection(CFG_SECTION, (settings) =>
+      settings
+        .text(upperFirst(t(this.name)))
+        .switch(cfg, 'hideErudaSetting', t('Hide Eruda Setting'))
+        .switch(cfg, 'observeElement', t('Auto Refresh Elements'))
+        .separator()
+    )
   }
   _initObserver() {
     this._observer = new MutationObserver((mutations) => {

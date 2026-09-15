@@ -1,6 +1,7 @@
 import Tool from '../DevTools/Tool'
 import noop from 'licia/noop'
 import $ from 'licia/$'
+import each from 'licia/each'
 import toStr from 'licia/toStr'
 import isFn from 'licia/isFn'
 import Emitter from 'licia/Emitter'
@@ -15,9 +16,10 @@ import isArr from 'licia/isArr'
 import extend from 'licia/extend'
 import evalCss from '../lib/evalCss'
 import Settings from '../Settings/Settings'
+import { t } from '../lib/i18n'
 import LunaConsole from 'luna-console'
 import LunaModal from 'luna-modal'
-import { classPrefix as c } from '../lib/util'
+import { classPrefix as c, showCopySuccess } from '../lib/util'
 
 uncaught.start()
 
@@ -142,10 +144,10 @@ export default class Console extends Tool {
       c(`
       <div class="control">
         <span class="icon-clear clear-console"></span>
-        <span class="level active" data-level="all">All</span>
-        <span class="level" data-level="info">Info</span>
-        <span class="level" data-level="warning">Warning</span>
-        <span class="level" data-level="error">Error</span>
+        <span class="level active" data-level="all">${t('All')}</span>
+        <span class="level" data-level="info">${t('Info')}</span>
+        <span class="level" data-level="warning">${t('Warning')}</span>
+        <span class="level" data-level="error">${t('Error')}</span>
         <span class="filter-text"></span>
         <span class="icon-filter filter"></span>
         <span class="icon-copy icon-disabled copy"></span>
@@ -153,8 +155,8 @@ export default class Console extends Tool {
       <div class="logs-container"></div>
       <div class="js-input">
         <div class="buttons">
-          <div class="button cancel">Cancel</div>
-          <div class="button execute">Execute</div>
+          <div class="button cancel">${t('Cancel')}</div>
+          <div class="button execute">${t('Execute')}</div>
         </div>
         <span class="icon-right"></span>
         <textarea></textarea>
@@ -241,14 +243,14 @@ export default class Console extends Tool {
         logger.setOption('level', level)
       })
       .on('click', c('.filter'), () => {
-        LunaModal.prompt('Filter').then((filter) => {
+        LunaModal.prompt(t('Filter')).then((filter) => {
           if (isNull(filter)) return
           this.filter(filter)
         })
       })
       .on('click', c('.copy'), () => {
         this._selectedLog.copy()
-        container.notify('Copied', { icon: 'success' })
+        showCopySuccess($control.find(c('.copy')).get(0))
       })
 
     $inputBtns
@@ -290,24 +292,22 @@ export default class Console extends Tool {
     this._$inputContainer.addClass(c('active'))
     this._$inputBtns.css('display', 'flex')
   }
-  _rmCfg() {
-    const cfg = this.config
+  refreshLang() {
+    const $control = this._$control
+    const $inputBtns = this._$inputBtns
 
+    $control.find(c('.level')).each(function () {
+      const $this = $(this)
+      $this.text(t(upperFirst($this.data('level'))))
+    })
+    $inputBtns.find(c('.cancel')).text(t('Cancel'))
+    $inputBtns.find(c('.execute')).text(t('Execute'))
+  }
+  _rmCfg() {
     const settings = this._container.get('settings')
     if (!settings) return
 
-    settings
-      .remove(cfg, 'asyncRender')
-      .remove(cfg, 'jsExecution')
-      .remove(cfg, 'catchGlobalErr')
-      .remove(cfg, 'overrideConsole')
-      .remove(cfg, 'displayExtraInfo')
-      .remove(cfg, 'displayUnenumerable')
-      .remove(cfg, 'displayGetterVal')
-      .remove(cfg, 'lazyEvaluation')
-      .remove(cfg, 'displayIfErr')
-      .remove(cfg, 'maxLogNum')
-      .remove(upperFirst(this.name))
+    settings.removeSection(this.name)
   }
   _initCfg() {
     const container = this._container
@@ -355,25 +355,26 @@ export default class Console extends Tool {
     const settings = container.get('settings')
     if (!settings) return
 
+    settings.addSection(this.name, (settings) => this._renderCfg(settings, cfg))
+  }
+  _renderCfg(settings, cfg) {
+    /** 日志条数上限的值需保持原样，只有“不限”这一项需要翻译。 */
+    const logNumOptions = {}
+    logNumOptions[t('infinite')] = 'infinite'
+    each(['250', '125', '100', '50', '10'], (num) => (logNumOptions[num] = num))
+
     settings
-      .text(upperFirst(this.name))
-      .switch(cfg, 'asyncRender', 'Asynchronous Rendering')
-      .switch(cfg, 'jsExecution', 'Enable JavaScript Execution')
-      .switch(cfg, 'catchGlobalErr', 'Catch Global Errors')
-      .switch(cfg, 'overrideConsole', 'Override Console')
-      .switch(cfg, 'displayIfErr', 'Auto Display If Error Occurs')
-      .switch(cfg, 'displayExtraInfo', 'Display Extra Information')
-      .switch(cfg, 'displayUnenumerable', 'Display Unenumerable Properties')
-      .switch(cfg, 'displayGetterVal', 'Access Getter Value')
-      .switch(cfg, 'lazyEvaluation', 'Lazy Evaluation')
-      .select(cfg, 'maxLogNum', 'Max Log Number', [
-        'infinite',
-        '250',
-        '125',
-        '100',
-        '50',
-        '10',
-      ])
+      .text(upperFirst(t(this.name)))
+      .switch(cfg, 'asyncRender', t('Asynchronous Rendering'))
+      .switch(cfg, 'jsExecution', t('Enable JavaScript Execution'))
+      .switch(cfg, 'catchGlobalErr', t('Catch Global Errors'))
+      .switch(cfg, 'overrideConsole', t('Override Console'))
+      .switch(cfg, 'displayIfErr', t('Auto Display If Error Occurs'))
+      .switch(cfg, 'displayExtraInfo', t('Display Extra Information'))
+      .switch(cfg, 'displayUnenumerable', t('Display Unenumerable Properties'))
+      .switch(cfg, 'displayGetterVal', t('Access Getter Value'))
+      .switch(cfg, 'lazyEvaluation', t('Lazy Evaluation'))
+      .select(cfg, 'maxLogNum', t('Max Log Number'), logNumOptions)
       .separator()
   }
 }

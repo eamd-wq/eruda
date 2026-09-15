@@ -4,7 +4,7 @@ describe('snippets', function () {
 
   describe('default', function () {
     it('border all', function () {
-      expect($tool.find('.eruda-name').eq(0)).toContainText('Border All')
+      expect($tool.find('.eruda-name').eq(0)).toContainText('元素描边')
 
       let $body = $('body')
       let $btn = $tool.find('.eruda-run').eq(0)
@@ -16,15 +16,15 @@ describe('snippets', function () {
     })
 
     it('refresh page', function () {
-      expect($tool.find('.eruda-name').eq(1)).toContainText('Refresh Page')
+      expect($tool.find('.eruda-name').eq(1)).toContainText('刷新页面')
     })
 
     it('search text', function () {
-      expect($tool.find('.eruda-name').eq(2)).toContainText('Search Text')
+      expect($tool.find('.eruda-name').eq(2)).toContainText('搜索文本')
     })
 
     it('edit page', function () {
-      expect($tool.find('.eruda-name').eq(3)).toContainText('Edit Page')
+      expect($tool.find('.eruda-name').eq(3)).toContainText('编辑页面')
 
       let $body = $('body')
       let $btn = $tool.find('.eruda-run').eq(3)

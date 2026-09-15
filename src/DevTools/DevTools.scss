@@ -14,6 +14,8 @@
   position: absolute;
   width: 100%;
   height: 100%;
+  // 沉浸式 WebView 中即使缓存异常，也要保证顶部工具栏避开系统状态栏。
+  max-height: calc(100% - 48px);
   left: 0;
   bottom: 0;
   background: var(--background);
@@ -42,5 +44,11 @@
       overflow: hidden;
       display: none;
     }
+  }
+}
+
+.inline {
+  .dev-tools {
+    max-height: 100%;
   }
 }

@@ -1,5 +1,6 @@
 import Url from 'licia/Url'
 import contain from 'licia/contain'
+import each from 'licia/each'
 import escapeJsStr from 'licia/escapeJsStr'
 import isUndef from 'licia/isUndef'
 import last from 'licia/last'
@@ -8,6 +9,9 @@ import memStorage from 'licia/memStorage'
 import toNum from 'licia/toNum'
 import trim from 'licia/trim'
 import html from 'licia/html'
+
+const COPY_SUCCESS_DURATION = 1500
+const copySuccessTimers = new WeakMap()
 
 // https://stackoverflow.com/questions/46318395/detecting-mobile-device-notch
 export function hasSafeArea() {
@@ -121,6 +125,49 @@ export function classPrefix(str) {
   }
 
   return processClass(str)
+}
+
+/**
+ * 用短暂的绿色对勾反馈复制成功；连续点击时从最后一次点击重新计时。
+ */
+export function showCopySuccess(icon) {
+  if (!icon) return
+
+  const currentTimer = copySuccessTimers.get(icon)
+  if (currentTimer) clearTimeout(currentTimer)
+
+  const successClass = classPrefix('copy-success')
+  icon.classList.add(successClass)
+  const timer = setTimeout(() => {
+    icon.classList.remove(successClass)
+    copySuccessTimers.delete(icon)
+  }, COPY_SUCCESS_DURATION)
+  copySuccessTimers.set(icon, timer)
+}
+
+/** 就地替换元素的首个文本节点，不破坏与其并列的图标按钮。 */
+export function setFirstTextNode(el, text) {
+  if (!el) return
+
+  let node = el.firstChild
+  if (!node || node.nodeType !== Node.TEXT_NODE) {
+    node = document.createTextNode('')
+    el.insertBefore(node, el.firstChild)
+  }
+  node.nodeValue = text
+}
+
+/**
+ * LunaDataGrid 只在初始化时写入列标题，这里按列顺序就地更新表头文本，
+ * 避免重建表头导致排序箭头等状态丢失。
+ */
+export function refreshDataGridTitles(dataGrid, columns) {
+  const headerRow = dataGrid.$headerRow && dataGrid.$headerRow.get(0)
+  if (!headerRow) return
+
+  each(columns, (column, idx) =>
+    setFirstTextNode(headerRow.children[idx], column.title)
+  )
 }
 
 function traverseTree(tree, handler) {

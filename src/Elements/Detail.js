@@ -14,6 +14,7 @@ import isNull from 'licia/isNull'
 import trim from 'licia/trim'
 import isFn from 'licia/isFn'
 import isBool from 'licia/isBool'
+import upperFirst from 'licia/upperFirst'
 import safeGet from 'licia/safeGet'
 import $ from 'licia/$'
 import h from 'licia/h'
@@ -25,7 +26,10 @@ import LunaModal from 'luna-modal'
 import LunaBoxModel from 'luna-box-model'
 import chobitsu from '../lib/chobitsu'
 import { formatNodeName } from './util'
+import { t } from '../lib/i18n'
 import { isErudaEl, classPrefix as c } from '../lib/util'
+
+const CFG_SECTION = 'elements'
 
 export default class Detail {
   constructor($container, devtools) {
@@ -52,6 +56,7 @@ export default class Detail {
   }
   destroy() {
     this._disableObserver()
+    this._boxModel.destroy()
     this.restoreEventTarget()
     this._rmCfg()
   }
@@ -149,7 +154,7 @@ export default class Detail {
 
     $elementName.html(data.name)
 
-    let attributes = '<tr><td>Empty</td></tr>'
+    let attributes = `<tr><td>${t('Empty')}</td></tr>`
     if (!isEmpty(data.attributes)) {
       attributes = map(data.attributes, ({ name, value }) => {
         return `<tr>
@@ -158,7 +163,7 @@ export default class Detail {
         </tr>`
       }).join('')
     }
-    attributes = `<h2>Attributes</h2>
+    attributes = `<h2>${t('Attributes')}</h2>
     <div class="${c('table-wrapper')}">
       <table>
         <tbody>
@@ -182,7 +187,7 @@ export default class Detail {
           <div>}</div>
         </div>`
       }).join('')
-      styles = `<h2>Styles</h2>
+      styles = `<h2>${t('Styles')}</h2>
       <div class="${c('style-wrapper')}">
         ${style}
       </div>`
@@ -203,7 +208,7 @@ export default class Detail {
       }
 
       computedStyle = `<h2>
-        Computed Style
+        ${t('Computed Style')}
         ${toggleButton}
         <div class="${c('btn computed-style-search')}">
           <span class="${c('icon-filter')}"></span>
@@ -252,7 +257,7 @@ export default class Detail {
           </ul>
         </div>`
       }).join('')
-      listeners = `<h2>Event Listeners</h2>
+      listeners = `<h2>${t('Event Listeners')}</h2>
       <div class="${c('listener-wrapper')}">
         ${listeners} 
       </div>`
@@ -314,7 +319,7 @@ export default class Detail {
         this._toggleAllComputedStyle()
       )
       .on('click', c('.computed-style-search'), () => {
-        LunaModal.prompt('Filter').then((filter) => {
+        LunaModal.prompt(t('Filter')).then((filter) => {
           if (isNull(filter)) return
           filter = trim(filter)
           this._computedStyleSearchKeyword = filter
@@ -370,19 +375,14 @@ export default class Detail {
     }
   }
   _rmCfg() {
-    const cfg = this.config
-
     const settings = this._devtools.get('settings')
 
     if (!settings) return
 
-    settings
-      .remove(cfg, 'overrideEventTarget')
-      .remove(cfg, 'observeElement')
-      .remove('Elements')
+    settings.removeSection(CFG_SECTION)
   }
   _initCfg() {
-    const cfg = (this.config = Settings.createCfg('elements', {
+    const cfg = (this.config = Settings.createCfg(CFG_SECTION, {
       overrideEventTarget: true,
     }))
 
@@ -398,11 +398,12 @@ export default class Detail {
     const settings = this._devtools.get('settings')
     if (!settings) return
 
-    settings
-      .text('Elements')
-      .switch(cfg, 'overrideEventTarget', 'Catch Event Listeners')
-
-    settings.separator()
+    settings.addSection(CFG_SECTION, (settings) =>
+      settings
+        .text(upperFirst(t(CFG_SECTION)))
+        .switch(cfg, 'overrideEventTarget', t('Catch Event Listeners'))
+        .separator()
+    )
   }
 }
 

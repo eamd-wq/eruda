@@ -10,8 +10,13 @@ import toNum from 'licia/toNum'
 import copy from 'licia/copy'
 import isMobile from 'licia/isMobile'
 import isShadowRoot from 'licia/isShadowRoot'
-import LunaDomViewer from 'luna-dom-viewer'
-import { isErudaEl, classPrefix as c, isChobitsuEl } from '../lib/util'
+import createDomViewer from './DomViewer'
+import {
+  isErudaEl,
+  classPrefix as c,
+  isChobitsuEl,
+  showCopySuccess,
+} from '../lib/util'
 import evalCss from '../lib/evalCss'
 import Detail from './Detail'
 import chobitsu from '../lib/chobitsu'
@@ -28,6 +33,9 @@ export default class Elements extends Tool {
     this._selectElement = false
     this._observeElement = true
     this._history = []
+    this._domViewer = null
+    this._isShow = false
+    this._destroyed = false
 
     Emitter.mixin(this)
   }
@@ -42,11 +50,6 @@ export default class Elements extends Tool {
     this.config = this._detail.config
     this._splitMediaQuery = new MediaQuery('screen and (min-width: 680px)')
     this._splitMode = this._splitMediaQuery.isMatch()
-    this._domViewer = new LunaDomViewer(this._$domViewer.get(0), {
-      node: this._htmlEl,
-      ignore: (node) => isErudaEl(node) || isChobitsuEl(node),
-    })
-    this._domViewer.expand()
     this._bindEvent()
     chobitsu.domain('Overlay').enable()
 
@@ -54,27 +57,24 @@ export default class Elements extends Tool {
   }
   show() {
     super.show()
-    this._isShow = true
-
-    if (!this._curNode) {
-      this.select(document.body)
-    } else if (this._splitMode) {
-      this._showDetail()
-    }
+    if (this._container._isShow) this._startDomViewer()
   }
   hide() {
     super.hide()
-    this._isShow = false
-
-    chobitsu.domain('Overlay').hideHighlight()
+    this._stopDomViewer()
   }
   select(node) {
-    this._domViewer.select(node)
+    if (!node) return this
     this._setNode(node)
+    if (this._domViewer) this._selectInDomViewer(node)
     this.emit('change', node)
     return this
   }
   destroy() {
+    this._destroyed = true
+    this._container.off('show', this._handleContainerShow)
+    this._container.off('hide', this._handleContainerHide)
+    this._stopDomViewer()
     super.destroy()
 
     emitter.off(emitter.SCALE, this._updateScale)
@@ -83,8 +83,75 @@ export default class Elements extends Tool {
     chobitsu
       .domain('Overlay')
       .off('inspectNodeRequested', this._inspectNodeRequested)
+    /** Overlay.disable only releases highlights; explicitly release picker clicks. */
+    chobitsu.domain('Overlay').setInspectMode({ mode: 'none' })
+    this._selectElement = false
     chobitsu.domain('Overlay').disable()
+    this._splitMediaQuery._mql.removeListener(this._splitMediaQuery._listener)
     this._splitMediaQuery.removeAllListeners()
+  }
+  /** Build the live tree only while both the tool and its container are visible. */
+  _startDomViewer() {
+    if (this._domViewer) return
+
+    this._isShow = true
+    this._domViewer = createDomViewer(this._$domViewer.get(0), {
+      node: this._htmlEl,
+      ignore: (node) => isErudaEl(node) || isChobitsuEl(node),
+    })
+    this._domViewer.on('select', this._setNode).on('deselect', this._back)
+    this._domViewer.expand()
+    const node = isNodeInDocument(this._curNode)
+      ? this._curNode
+      : this._existingParent()
+    /** A surviving selection may have moved while hidden; refresh its ancestor path. */
+    this._setNode(node, true)
+    this.select(node)
+  }
+  /** Hidden tools must not process host-page mutations or retain live observers. */
+  _stopDomViewer() {
+    this._isShow = false
+    this._detail.hide()
+    const viewer = this._domViewer
+    if (!viewer) return
+
+    this._domViewer = null
+    /** Teardown emits deselect for selected descendants; it is not a page deletion. */
+    viewer.off('select', this._setNode).off('deselect', this._back)
+    viewer.destroy()
+  }
+  _handleContainerShow = () => {
+    if (this.active) this._startDomViewer()
+  }
+  _handleContainerHide = () => {
+    /** Keep Overlay inspect mode alive while the picker temporarily hides Eruda. */
+    this._stopDomViewer()
+  }
+  /** Luna's root select uses parentElement, so restore shadow/text nodes explicitly. */
+  _selectInDomViewer(node) {
+    const path = []
+    let current = node
+    while (current && current !== this._htmlEl) {
+      path.unshift(current)
+      current = parentNodeOrHost(current)
+    }
+    if (current !== this._htmlEl) return
+
+    let viewer = this._domViewer
+    for (const child of path) {
+      viewer.expand()
+      const index = viewer.childNodes.indexOf(child)
+      if (index === -1) return
+      viewer = viewer.childNodeDomViewers[index]
+    }
+    viewer.select()
+  }
+  /** A detached subtree may have no surviving parent; never spin on an empty queue. */
+  _existingParent() {
+    for (const parent of this._curParentQueue || []) {
+      if (isNodeInDocument(parent)) return parent
+    }
+    return document.body || this._htmlEl
   }
   _updateButtons() {
     const $control = this._$control
@@ -116,11 +183,15 @@ export default class Elements extends Tool {
     if (!this._isShow || !this._curNode) {
       return
     }
-    if (this._curNode.nodeType === Node.ELEMENT_NODE) {
-      this._detail.show(this._curNode)
-    } else {
-      this._detail.show(this._curNode.parentNode || this._curNode.host)
+    let element = this._curNode
+    while (element && element.nodeType !== Node.ELEMENT_NODE) {
+      element = parentNodeOrHost(element)
     }
+    if (element) this._detail.show(element)
+  }
+  /** 面板自身的文案都在详情里，可见时重绘一次即可。 */
+  refreshLang() {
+    this._showDetail()
   }
   _initTpl() {
     const $el = this._$el
@@ -158,15 +229,7 @@ export default class Elements extends Tool {
   }
   _back = () => {
     if (this._curNode === this._htmlEl) return
-
-    const parentQueue = this._curParentQueue
-    let parent = parentQueue.shift()
-
-    while (!isElExist(parent)) {
-      parent = parentQueue.shift()
-    }
-
-    this.set(parent)
+    this.select(this._existingParent())
   }
   _bindEvent() {
     const self = this
@@ -190,7 +253,8 @@ export default class Elements extends Tool {
       .on('click', c('.copy-node'), this._copyNode)
       .on('click', c('.delete-node'), this._deleteNode)
 
-    this._domViewer.on('select', this._setNode).on('deselect', this._back)
+    this._container.on('show', this._handleContainerShow)
+    this._container.on('hide', this._handleContainerHide)
 
     chobitsu
       .domain('Overlay')
@@ -226,7 +290,7 @@ export default class Elements extends Tool {
       copy(node.nodeValue)
     }
 
-    this._container.notify('Copied', { icon: 'success' })
+    showCopySuccess(this._$control.find(c('.copy-node')).get(0))
   }
   _toggleSelect = () => {
     this._$el.find(c('.select')).toggleClass(c('active'))
@@ -265,18 +329,19 @@ export default class Elements extends Tool {
       // No op
     }
   }
-  _setNode = (node) => {
-    if (node === this._curNode) return
+  _setNode = (node, refresh = false) => {
+    const changed = node !== this._curNode
+    if (!changed && !refresh) return
 
     this._curNode = node
     this._renderCrumbs()
 
     const parentQueue = []
 
-    let parent = node.parentNode
-    while (parent) {
+    let parent = parentNodeOrHost(node)
+    while (parent && parent !== document) {
       parentQueue.push(parent)
-      parent = parent.parentNode
+      parent = parentNodeOrHost(parent)
     }
     this._curParentQueue = parentQueue
 
@@ -284,9 +349,10 @@ export default class Elements extends Tool {
       this._showDetail()
     }
     this._updateButtons()
-    this._updateHistory()
+    if (changed) this._updateHistory()
   }
   _updateHistory() {
+    if (this._destroyed) return
     const console = this._container.get('console')
     if (!console) return
 
@@ -300,6 +366,18 @@ export default class Elements extends Tool {
 }
 
 const isElExist = (val) => isEl(val) && val.parentNode
+
+const parentNodeOrHost = (node) =>
+  node.parentNode || (isShadowRoot(node) ? node.host : null)
+
+/** Include shadow-tree ancestors when checking whether a saved selection survives. */
+function isNodeInDocument(node) {
+  while (node) {
+    if (node === document) return true
+    node = parentNodeOrHost(node)
+  }
+  return false
+}
 
 function getCrumbs(el) {
   const ret = []

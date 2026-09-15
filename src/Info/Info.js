@@ -9,7 +9,8 @@ import map from 'licia/map'
 import escape from 'licia/escape'
 import copy from 'licia/copy'
 import $ from 'licia/$'
-import { classPrefix as c } from '../lib/util'
+import { t } from '../lib/i18n'
+import { classPrefix as c, showCopySuccess } from '../lib/util'
 
 export default class Info extends Tool {
   constructor() {
@@ -44,6 +45,9 @@ export default class Info extends Tool {
     if (this._container._isShow) this._startLocationWatcher()
 
     return this
+  }
+  refreshLang() {
+    this._render()
   }
   hide() {
     super.hide()
@@ -117,7 +121,7 @@ export default class Info extends Tool {
     const html = `<ul>${map(
       infos,
       (info) =>
-        `<li><h2 class="${c('title')}">${escape(info.name)}<span class="${c(
+        `<li><h2 class="${c('title')}">${escape(t(info.name))}<span class="${c(
           'icon-copy copy'
         )}"></span></h2><div class="${c('content')}">${info.val}</div></li>`
     ).join('')}</ul>`
@@ -135,7 +139,7 @@ export default class Info extends Tool {
       const name = $li.find(c('.title')).text()
       const content = $li.find(c('.content')).text()
       copy(`${name}: ${content}`)
-      container.notify('Copied', { icon: 'success' })
+      showCopySuccess(this)
     })
   }
   _handleContainerShow = () => {

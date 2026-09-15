@@ -277,6 +277,7 @@ export default {
   _initEntryBtn() {
     this._entryBtn = new EntryBtn(this._$el)
     this._entryBtn.on('click', () => this._devTools.toggle())
+    this._devTools.on('langChange', () => this._entryBtn.refreshLang())
   },
   _initSettings() {
     const devTools = this._devTools

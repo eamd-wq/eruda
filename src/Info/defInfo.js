@@ -2,6 +2,7 @@ import detectBrowser from 'licia/detectBrowser'
 import detectOs from 'licia/detectOs'
 import escape from 'licia/escape'
 import map from 'licia/map'
+import { t } from '../lib/i18n'
 
 const browser = detectBrowser()
 
@@ -20,9 +21,13 @@ export default [
     name: 'Device',
     val: [
       '<table><tbody>',
-      `<tr><td class="eruda-device-key">screen</td><td>${screen.width} * ${screen.height}</td></tr>`,
-      `<tr><td>viewport</td><td>${window.innerWidth} * ${window.innerHeight}</td></tr>`,
-      `<tr><td>pixel ratio</td><td>${window.devicePixelRatio}</td></tr>`,
+      `<tr><td class="eruda-device-key">${t(
+        'screen'
+      )}</td><td>${screen.width} * ${screen.height}</td></tr>`,
+      `<tr><td>${t('viewport')}</td><td>${window.innerWidth} * ${
+        window.innerHeight
+      }</td></tr>`,
+      `<tr><td>${t('pixel ratio')}</td><td>${window.devicePixelRatio}</td></tr>`,
       '</tbody></table>',
     ].join(''),
   },
@@ -30,8 +35,8 @@ export default [
     name: 'System',
     val: [
       '<table><tbody>',
-      `<tr><td class="eruda-system-key">os</td><td>${detectOs()}</td></tr>`,
-      `<tr><td>browser</td><td>${
+      `<tr><td class="eruda-system-key">${t('os')}</td><td>${detectOs()}</td></tr>`,
+      `<tr><td>${t('browser')}</td><td>${
         browser.name + ' ' + browser.version
       }</td></tr>`,
       '</tbody></table>',
