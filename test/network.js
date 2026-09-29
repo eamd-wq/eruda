@@ -327,4 +327,98 @@ describe('network', function () {
       expect($('.eruda-data').text().length).not.toBeGreaterThan(100000)
     })
   })
+
+  describe('list height', function () {
+    function addRequests(count) {
+      for (let i = 0; i < count; i++) {
+        tool._reqWillBeSent({
+          requestId: 'list-height-' + i,
+          timestamp: Date.now() / 1000,
+          request: {
+            url: 'https://example.com/api/list/' + i,
+            method: 'GET',
+            headers: {},
+          },
+        })
+      }
+    }
+
+    function listHeight() {
+      return parseFloat(tool._requestDataGrid.$dataContainer.get(0).style.height)
+    }
+
+    function panelHeight() {
+      return tool._requestDataGrid.$container.parent().get(0).clientHeight
+    }
+
+    /** 复现面板尚未被 fit 测量过的状态：maxHeight 仍是 Luna 的初始值 Infinity。 */
+    function resetMeasurement() {
+      tool._requestDataGrid.setOption({ minHeight: 41, maxHeight: Infinity })
+    }
+
+    beforeEach(function () {
+      tool.clear()
+      /** 面板需要已布局，fit 才能测量到真实高度。 */
+      eruda.show()
+    })
+
+    it('does not grow with the request count before the panel is measured', function () {
+      resetMeasurement()
+      addRequests(30)
+
+      expect(listHeight()).toBeGreaterThan(0)
+      expect(listHeight()).not.toBeGreaterThan(panelHeight())
+    })
+
+    it('re-measures the list when the panel is shown again', function () {
+      resetMeasurement()
+
+      /** 等价于 DevTools.show()：面板重新显示后需要补一次测量。 */
+      eruda.get().emit('show')
+
+      expect(tool._requestDataGrid.options.maxHeight).not.toBe(Infinity)
+    })
+
+    it('hugs the content when the rows are shorter than the panel', function (done) {
+      tool.clear()
+      addRequests(3)
+
+      /** renderData 是节流的，等一帧后再量高度。 */
+      setTimeout(function () {
+        expect(listHeight()).toBe(96)
+        expect(listHeight()).toBeLessThan(panelHeight())
+
+        done()
+      }, 100)
+    })
+
+    it('fills the panel and scrolls when the rows exceed one screen', function (done) {
+      tool.clear()
+      addRequests(40)
+
+      setTimeout(function () {
+        const container = tool._requestDataGrid.$dataContainer.get(0)
+
+        expect(listHeight()).toBeLessThanOrEqual(panelHeight())
+        expect(listHeight()).toBeGreaterThan(panelHeight() - 100)
+        expect(container.scrollHeight).toBeGreaterThan(container.clientHeight)
+
+        done()
+      }, 150)
+    })
+
+    it('keeps rows compact when there are fewer rows than the panel height', function (done) {
+      tool.clear()
+      addRequests(3)
+
+      /** renderData 是节流的，等一帧后再量行高。 */
+      setTimeout(function () {
+        const row = $('.eruda-requests .luna-data-grid-node').get(0)
+
+        expect(Math.round(row.getBoundingClientRect().height)).toBe(32)
+
+        done()
+      }, 100)
+    })
+  })
 })

@@ -62,8 +62,33 @@ export default class NetworkDataGrid extends LunaDataGrid {
     this.renderData()
     this.updateHeight()
   }
+  /**
+   * Luna 的 fit 只判断容器是否隐藏，父容器尚未布局（高度为 0）时会写入 0 或负值，
+   * 负的 maxHeight 会让高度计算失效并把列表交回内容撑开，因此先确认父容器已布局。
+   */
+  fit() {
+    const parent = this.$container.parent().get(0)
+    if (!parent || parent.clientHeight <= 0) return
+
+    /** Luna 会把 minHeight 一起设成面板高度，列表不足一屏时会被撑成一大片空白。 */
+    const minHeight = this.options.minHeight
+    super.fit()
+    if (this.options.minHeight !== minHeight) {
+      this.setOption('minHeight', minHeight)
+    }
+  }
   updateHeight() {
     const { $fillerRow, $container } = this
+
+    /**
+     * fit 生效前 maxHeight 仍是 Luna 的初始值 Infinity，此时按行数计算高度会让列表
+     * 随请求数线性变高；补一次测量，仍不可测量则保持现有高度。
+     */
+    if (this.options.maxHeight === Infinity) {
+      this.fit()
+      if (this.options.maxHeight === Infinity) return
+    }
+
     let { maxHeight, minHeight } = this.options
     const headerHeight = this.$headerRow.offset().height
     const borderTopWidth = pxToNum($container.css('border-top-width'))

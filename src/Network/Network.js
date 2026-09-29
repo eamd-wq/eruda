@@ -53,6 +53,11 @@ export default class Network extends Tool {
       columns: map(COLUMNS, (column) =>
         extend({}, column, { title: t(column.title) })
       ),
+      /**
+       * fit 需要面板可见才生效，先给一个视口高度的兜底上限，
+       * 否则面板未显示时列表会被请求数撑得比屏幕还高。
+       */
+      maxHeight: window.innerHeight,
     })
     this._resizeSensor = new ResizeSensor($el.get(0))
     this._bindEvent()
@@ -60,6 +65,12 @@ export default class Network extends Tool {
   show() {
     super.show()
     this._updateDataGridHeight()
+  }
+  /**
+   * 面板在隐藏状态下被选中时 fit 不会生效，这里在整体显示后重新测量一次。
+   */
+  _handleContainerShow = () => {
+    if (this.active) this._updateDataGridHeight()
   }
   /** LunaDataGrid 只在初始化时渲染表头，语言切换后按原顺序就地更新列标题。 */
   refreshLang() {
@@ -291,6 +302,8 @@ export default class Network extends Tool {
       throttle(() => this._updateDataGridHeight(), 15),
     )
 
+    this._container.on('show', this._handleContainerShow)
+
     this._splitMediaQuery.on('match', () => {
       this._detail.hide()
       this._splitMode = true
@@ -324,6 +337,7 @@ export default class Network extends Tool {
   destroy() {
     super.destroy()
 
+    this._container.off('show', this._handleContainerShow)
     this._resizeSensor.destroy()
     evalCss.remove(this._style)
     this._splitMediaQuery.removeAllListeners()

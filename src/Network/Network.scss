@@ -53,10 +53,19 @@
   .luna-data-grid {
     border-left: none;
     border-right: none;
+    // Luna 的表格带 min-height: 100%，行数不足一屏时会把行高拉伸填满容器，
+    // 这里让表格按内容高度渲染，空白由 data-space 承担。
+    table {
+      min-height: 0;
+    }
     td {
       height: 32px;
       padding-top: 5px;
       padding-bottom: 5px;
+    }
+    // 填充行只用于撑住最小高度，不应参与固定行高，否则空列表会出现无意义的滚动溢出。
+    .luna-data-grid-filler-row td {
+      height: auto;
     }
   }
   .detail {
