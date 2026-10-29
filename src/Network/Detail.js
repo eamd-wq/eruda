@@ -40,7 +40,7 @@ export default class Detail extends Emitter {
     let postData = ''
     if (data.data) {
       postData = `<pre class="${c('data')}">${escape(
-        formatBody(data.data),
+        formatBody(data.data)
       )}</pre>`
     }
 
@@ -67,7 +67,7 @@ export default class Detail extends Emitter {
     let resTxt = ''
     if (data.resTxt) {
       resTxt = `<pre class="${c('response')}">${escape(
-        formatBody(data.resTxt),
+        formatBody(data.resTxt)
       )}</pre>`
     }
 
@@ -75,6 +75,7 @@ export default class Detail extends Emitter {
       <span class="${c('icon-left back')}"></span>
       <span class="${c('icon-delete back')}"></span>
       <span class="${c('url')}">${escape(data.url)}</span>
+      <span class="${c('icon-tool mock-request')}" role="button" tabindex="0" title="${t('Mock this interface')}" aria-label="${t('Mock this interface')}"></span>
       <span class="${c(
         'icon-caret-down copy-menu-toggle',
       )}" title="${t('Copy options')}" aria-label="${t(
@@ -274,7 +275,7 @@ export default class Detail extends Emitter {
       for (let j = 0, rangeLen = ranges.length; j < rangeLen; j++) {
         const range = ranges[j]
         fragment.appendChild(
-          document.createTextNode(text.slice(offset, range[0])),
+          document.createTextNode(text.slice(offset, range[0]))
         )
 
         const mark = document.createElement('mark')
@@ -288,7 +289,7 @@ export default class Detail extends Emitter {
     }
 
     this._searchMatches = Array.prototype.slice.call(
-      root.querySelectorAll(c('.detail-search-match')),
+      root.querySelectorAll(c('.detail-search-match'))
     )
     if (this._searchMatches.length > 0) {
       this._selectSearchMatch(0)
@@ -317,7 +318,7 @@ export default class Detail extends Emitter {
     /** Scroll the Network detail only; never move the inspected page itself. */
     http.scrollTop = Math.max(
       0,
-      matchTop - (http.clientHeight - matchRect.height) / 2,
+      matchTop - (http.clientHeight - matchRect.height) / 2
     )
     this._renderSearchStatus()
   }
@@ -334,7 +335,7 @@ export default class Detail extends Emitter {
       'title',
       limited
         ? t('Showing the first {0} of {1} matches', len, this._searchTotal)
-        : '',
+        : ''
     )
     if (len === 0) {
       $buttons.attr('disabled', 'disabled')
@@ -347,6 +348,15 @@ export default class Detail extends Emitter {
 
     this._$container
       .on('click', c('.back'), () => this.hide())
+      .on('click', c('.mock-request'), () =>
+        this.emit('mock', this._detailData)
+      )
+      .on('keydown', c('.mock-request'), (event) => {
+        if (event.origEvent.key === 'Enter' || event.origEvent.key === ' ') {
+          event.preventDefault()
+          this.emit('mock', this._detailData)
+        }
+      })
       .on('click', c('.copy-menu-toggle'), this._toggleCopyMenu)
       .on('click', c('.copy-menu-item'), this._copyField)
       .on('click', c('.http'), this._hideCopyMenu)

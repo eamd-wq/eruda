@@ -1,5 +1,6 @@
 @use '../style/variable' as *;
 @use '../style/mixin' as *;
+@use './Mock' as *;
 
 #network {
   .network {
@@ -15,6 +16,20 @@
     }
     .icon-clear {
       left: 40px;
+    }
+    .mock-manage {
+      left: 80px;
+    }
+    .mock-count {
+      position: absolute;
+      top: 2px;
+      right: 1px;
+      min-width: 13px;
+      padding: 0 2px;
+      border-radius: 6px;
+      background: var(--highlight);
+      color: var(--select-foreground);
+      font: 9px/13px $font-family;
     }
     .icon-copy {
       right: 0;
@@ -76,7 +91,7 @@
     background: var(--background);
     .control {
       z-index: 2;
-      padding: 10px 40px;
+      padding: 10px 80px 10px 40px;
       border-bottom: 1px solid var(--border);
       .url {
         font-size: $font-size-s;
@@ -95,6 +110,9 @@
       }
       .copy-menu-toggle {
         right: 0;
+      }
+      .mock-request {
+        right: 40px;
       }
       .copy-menu {
         display: none;

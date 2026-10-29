@@ -4,6 +4,8 @@ import ms from 'licia/ms'
 import each from 'licia/each'
 import map from 'licia/map'
 import Detail from './Detail'
+import MockManager from './MockManager'
+import networkMock from './Mock'
 import throttle from 'licia/throttle'
 import { getFileName, classPrefix as c, showCopySuccess, refreshDataGridTitles } from '../lib/util'
 import evalCss from '../lib/evalCss'
@@ -38,6 +40,7 @@ export default class Network extends Tool {
 
     this.name = 'network'
     this._requests = {}
+    this._mockContexts = {}
     this._selectedRequest = null
     this._isRecording = true
   }
@@ -61,6 +64,15 @@ export default class Network extends Tool {
     })
     this._resizeSensor = new ResizeSensor($el.get(0))
     this._bindEvent()
+    this._mockStore = networkMock.enable()
+    this._mockManager = new MockManager(
+      this._$el.find(c('.mock-panel')),
+      container,
+      networkMock
+    )
+    this._mockStore.on('change', this._updateMockButtons)
+    networkMock.on('error', this._mockError)
+    this._updateMockButtons()
   }
   show() {
     super.show()
@@ -81,9 +93,15 @@ export default class Network extends Tool {
 
     /** 详情关闭时不应被重绘重新打开。 */
     if (this._$detail.css('display') !== 'none') this._detail.refreshLang()
+    this._mockManager.refreshLang()
+    this._updateMockButtons()
   }
   clear() {
+    Object.keys(this._mockContexts).forEach((id) => {
+      this._mockContexts[id].onPrepared = null
+    })
     this._requests = {}
+    this._mockContexts = {}
     this._requestDataGrid.clear()
   }
   requests() {
@@ -97,6 +115,7 @@ export default class Network extends Tool {
     this._requestDataGrid.fit()
   }
   _reqWillBeSent = (params) => {
+    const mockContext = networkMock.consume(params.request, params.type)
     if (!this._isRecording) {
       return
     }
@@ -116,11 +135,12 @@ export default class Network extends Tool {
       done: false,
       reqHeaders: params.request.headers || {},
       resHeaders: {},
+      mocked: !!mockContext,
     }
     let node
     request.render = () => {
       const data = {
-        name: request.name,
+        name: (request.mocked ? '[Mock] ' : '') + request.name,
         method: request.method,
         status: request.status,
         size: request.size,
@@ -139,10 +159,28 @@ export default class Network extends Tool {
     }
     request.render()
     this._requests[params.requestId] = request
+    if (mockContext) {
+      this._mockContexts[params.requestId] = mockContext
+      mockContext.onPrepared = () => {
+        if (this._requests[params.requestId] !== request) return
+        const effective = mockContext.request
+        request.url = effective.url
+        request.name = getFileName(effective.url)
+        request.reqHeaders = effective.headers
+        if (
+          typeof mockContext.wireBody === 'string' &&
+          !/^(GET|HEAD)$/.test(effective.method)
+        )
+          request.data = mockContext.wireBody
+        request.render()
+      }
+      if (mockContext.prepared) mockContext.onPrepared()
+    }
   }
   _resReceivedExtraInfo = (params) => {
     const request = this._requests[params.requestId]
-    if (!this._isRecording || !request) {
+    /** 复用 XHR 后旧订阅仍可能回调，已结束的记录不得被后续请求覆盖。 */
+    if (!this._isRecording || !request || request.done) {
       return
     }
 
@@ -159,7 +197,7 @@ export default class Network extends Tool {
   }
   _resReceived = (params) => {
     const request = this._requests[params.requestId]
-    if (!this._isRecording || !request) {
+    if (!this._isRecording || !request || request.done) {
       return
     }
 
@@ -177,8 +215,11 @@ export default class Network extends Tool {
     request.render()
   }
   _loadingFinished = (params) => {
+    const mockContext = this._mockContexts[params.requestId]
+    if (mockContext) mockContext.onPrepared = null
+    delete this._mockContexts[params.requestId]
     const request = this._requests[params.requestId]
-    if (!this._isRecording || !request) {
+    if (!this._isRecording || !request || request.done) {
       return
     }
 
@@ -195,8 +236,11 @@ export default class Network extends Tool {
     request.render()
   }
   _loadingFailed = (params) => {
+    const mockContext = this._mockContexts[params.requestId]
+    if (mockContext) mockContext.onPrepared = null
+    delete this._mockContexts[params.requestId]
     const request = this._requests[params.requestId]
-    if (!this._isRecording || !request) {
+    if (!this._isRecording || !request || request.done) {
       return
     }
 
@@ -236,7 +280,7 @@ export default class Network extends Tool {
             }
           })
         },
-      }),
+      })
     )
 
     showCopySuccess(this._$control.find(c('.copy-curl')).get(0))
@@ -262,7 +306,29 @@ export default class Network extends Tool {
         this._$network.css('width', '50%')
       }
       this._detail.show(this._selectedRequest)
+      this._updateMockButtons()
     }
+  }
+  _mockError = (error) => {
+    this._container.notify(t('Mock failed: {0}', error.message))
+  }
+  _updateMockButtons = () => {
+    if (!this._mockStore) return
+    const count = this._mockStore.rules.filter(
+      (rule) =>
+        rule.enabled &&
+        Object.keys(rule.parts).some((key) => rule.parts[key].enabled)
+    ).length
+    this._$control.find(c('.mock-count')).text('' + count)
+    const $entry = this._$control.find(c('.mock-manage'))
+    $entry.attr('title', t('Mock rules')).attr('aria-label', t('Mock rules'))
+    if (count) $entry.addClass(c('active'))
+    else $entry.rmClass(c('active'))
+    const request = this._selectedRequest
+    const rule = request && this._mockStore.get(request.method, request.url)
+    const $detailEntry = this._$detail.find(c('.mock-request'))
+    if (rule && rule.enabled) $detailEntry.addClass(c('active'))
+    else $detailEntry.rmClass(c('active'))
   }
   _bindEvent() {
     const $control = this._$control
@@ -275,6 +341,13 @@ export default class Network extends Tool {
       .on('click', c('.clear-request'), () => this.clear())
       .on('click', c('.copy-curl'), this._copyCurl)
       .on('click', c('.record'), this._toggleRecording)
+      .on('click', c('.mock-manage'), () => this._mockManager.show())
+      .on('keydown', c('.mock-manage'), (event) => {
+        if (event.origEvent.key === 'Enter' || event.origEvent.key === ' ') {
+          event.preventDefault()
+          this._mockManager.show()
+        }
+      })
       .on('click', c('.filter'), () => {
         LunaModal.prompt(t('Filter')).then((filter) => {
           if (isNull(filter)) return
@@ -299,7 +372,7 @@ export default class Network extends Tool {
     })
 
     this._resizeSensor.addListener(
-      throttle(() => this._updateDataGridHeight(), 15),
+      throttle(() => this._updateDataGridHeight(), 15)
     )
 
     this._container.on('show', this._handleContainerShow)
@@ -319,6 +392,7 @@ export default class Network extends Tool {
         this._$network.css('width', '100%')
       }
     })
+    this._detail.on('mock', (request) => this._mockManager.editRequest(request))
 
     chobitsu.domain('Network').enable()
 
@@ -335,6 +409,14 @@ export default class Network extends Tool {
     this._splitMediaQuery.setQuery(`screen and (min-width: ${680 * scale}px)`)
   }
   destroy() {
+    networkMock.disable()
+    networkMock.off('error', this._mockError)
+    this._mockStore.off('change', this._updateMockButtons)
+    this._mockManager.destroy()
+    Object.keys(this._mockContexts).forEach((id) => {
+      this._mockContexts[id].onPrepared = null
+    })
+    this._mockContexts = {}
     super.destroy()
 
     this._container.off('show', this._handleContainerShow)
@@ -347,6 +429,7 @@ export default class Network extends Tool {
     network.off('responseReceivedExtraInfo', this._resReceivedExtraInfo)
     network.off('responseReceived', this._resReceived)
     network.off('loadingFinished', this._loadingFinished)
+    network.off('loadingFailed', this._loadingFailed)
 
     emitter.off(emitter.SCALE, this._updateScale)
   }
@@ -357,13 +440,19 @@ export default class Network extends Tool {
         <div class="control">
           <span class="icon-record record recording"></span>
           <span class="icon-clear clear-request"></span>
+          <span class="icon-tool mock-manage" role="button" tabindex="0" title="${t(
+            'Mock rules'
+          )}" aria-label="${t(
+        'Mock rules'
+      )}"><span class="mock-count">0</span></span>
           <span class="icon-copy icon-disabled copy-curl"></span>
           <span class="filter-text"></span>
           <span class="icon-filter filter"></span>
         </div>
         <div class="requests"></div>
       </div>
-      <div class="detail"></div>`),
+      <div class="detail"></div>
+      <div class="mock-panel"></div>`)
     )
     this._$network = $el.find(c('.network'))
     this._$detail = $el.find(c('.detail'))

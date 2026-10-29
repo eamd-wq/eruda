@@ -1,3 +1,4 @@
+import '../Network/Mock'
 import Chobitsu from 'chobitsu/Chobitsu'
 import * as Network from 'chobitsu/domains/Network'
 import * as Overlay from 'chobitsu/domains/Overlay'

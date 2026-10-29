@@ -1,6 +1,7 @@
 import logger from '../lib/logger'
 import Tool from './Tool'
 import Settings from '../Settings/Settings'
+import { MOCK_STORAGE_KEY } from '../Network/MockStore'
 import Emitter from 'licia/Emitter'
 import defaults from 'licia/defaults'
 import keys from 'licia/keys'
@@ -50,7 +51,7 @@ export default class DevTools extends Emitter {
         theme: SYSTEM_PREFERENCE,
         lang: DEFAULT_LANG,
       },
-      defaults,
+      defaults
     )
 
     this._style = evalCss(require('./DevTools.scss'))
@@ -96,6 +97,8 @@ export default class DevTools extends Emitter {
     return this
   }
   hide() {
+    this._endResize()
+
     if (this._inline) {
       return this
     }
@@ -299,7 +302,8 @@ export default class DevTools extends Emitter {
             return
           }
 
-          if (startWith(key, 'eruda')) {
+          /** Mock 规则是用户数据，恢复面板设置时保留，只能由用户手动删除。 */
+          if (startWith(key, 'eruda') && key !== MOCK_STORAGE_KEY) {
             store.removeItem(key)
           }
         })
@@ -333,6 +337,7 @@ export default class DevTools extends Emitter {
     this._notification.notify(content, options)
   }
   destroy() {
+    this._endResize()
     clearTimeout(this._showTimer)
     clearTimeout(this._hideTimer)
     evalCss.remove(this._style)
@@ -409,7 +414,7 @@ export default class DevTools extends Emitter {
         <div class="notification"></div>
         <div class="modal"></div>
       </div>
-      `),
+      `)
     )
 
     this._$backdrop = $container.find(c('.backdrop'))
@@ -436,7 +441,7 @@ export default class DevTools extends Emitter {
           x: 'center',
           y: 'top',
         },
-      },
+      }
     )
   }
   _initModal() {
@@ -445,7 +450,19 @@ export default class DevTools extends Emitter {
   _bindEvent() {
     const $resizer = this._$el.find(c('.resizer'))
     const $navBar = this._$el.find(c('.nav-bar'))
-    const $document = $(document)
+    const $scrollable = this._$el.find(c('.tools, .tab, .modal'))
+    const downEvent = pointerEvent('down')
+    const moveEvent = pointerEvent('move')
+    const upEvent = pointerEvent('up')
+    const cancelEvent =
+      downEvent === 'pointerdown' ? 'pointercancel' : 'touchcancel'
+    let pointerId
+    let touchId
+
+    /** 隔离宿主弹窗的 document 锁滚动监听，保留面板内的原生滚动与输入。 */
+    const stopTouchPropagation = (e) => e.stopPropagation()
+    $scrollable.on('touchstart', stopTouchPropagation)
+    $scrollable.on('touchmove', stopTouchPropagation)
 
     if (this._inline) {
       $resizer.hide()
@@ -453,30 +470,61 @@ export default class DevTools extends Emitter {
 
     this._$backdrop.on('click', () => this.hide())
 
+    const isOtherPointer = (e) =>
+      e.pointerId !== void 0 && e.pointerId !== pointerId
+    const getPoint = (e) => {
+      if (isOtherPointer(e)) return
+      if (!e.changedTouches) return e
+
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i]
+        if (touch.identifier === touchId) return touch
+      }
+    }
+    const visibilityListener = () => {
+      if (document.hidden) endListener()
+    }
     const startListener = (e) => {
+      if (
+        this._inline ||
+        this._isResizing ||
+        e.isPrimary === false ||
+        (e.button != null && e.button !== 0)
+      ) {
+        return
+      }
+      const point = e.changedTouches ? e.changedTouches[0] : e
+      if (!point) return
+
       e.preventDefault()
       e.stopPropagation()
 
-      e = e.origEvent
+      pointerId = e.pointerId
+      touchId = point.identifier
       this._isResizing = true
       this._resizeStartSize = this.config.get('displaySize')
-      this._resizeStartY = eventClient('y', e)
+      this._resizeStartY = eventClient('y', point)
 
-      $resizer.css('height', '100%')
-
-      $document.on(pointerEvent('move'), moveListener)
-      $document.on(pointerEvent('up'), endListener)
+      /** 仅拖拽时取消默认动作；旧版 iOS 的 touchmove 监听必须显式允许取消。 */
+      document.addEventListener(moveEvent, moveListener, { passive: false })
+      document.addEventListener(upEvent, endListener)
+      document.addEventListener(cancelEvent, endListener)
+      document.addEventListener('visibilitychange', visibilityListener)
+      window.addEventListener('blur', endListener)
     }
     const moveListener = (e) => {
       if (!this._isResizing) {
         return
       }
+      const point = getPoint(e)
+      if (!point) return
+
       e.preventDefault()
       e.stopPropagation()
 
-      e = e.origEvent
       const deltaY =
-        ((this._resizeStartY - eventClient('y', e)) / window.innerHeight) * 100
+        ((this._resizeStartY - eventClient('y', point)) / window.innerHeight) *
+        100
       let displaySize = this._resizeStartSize + deltaY
       if (displaySize < MIN_DISPLAY_SIZE) {
         displaySize = MIN_DISPLAY_SIZE
@@ -485,17 +533,27 @@ export default class DevTools extends Emitter {
       }
       this.config.set('displaySize', toNum(displaySize.toFixed(2)))
     }
-    const endListener = () => {
+    /** 取消、切后台、关闭和销毁都必须释放文档监听，避免后续滚动继续被拖拽消费。 */
+    const endListener = (this._endResize = (e) => {
+      if (
+        e &&
+        (isOtherPointer(e) ||
+          (e.changedTouches && e.changedTouches.length > 0 && !getPoint(e)))
+      ) {
+        return
+      }
       clearTimeout(this._resizeTimer)
       this._isResizing = false
+      pointerId = void 0
+      touchId = void 0
 
-      $resizer.css('height', 10)
-
-      $document.off(pointerEvent('move'), moveListener)
-      $document.off(pointerEvent('up'), endListener)
-    }
-    $resizer.css('height', 10)
-    $resizer.on(pointerEvent('down'), startListener)
+      document.removeEventListener(moveEvent, moveListener)
+      document.removeEventListener(upEvent, endListener)
+      document.removeEventListener(cancelEvent, endListener)
+      document.removeEventListener('visibilitychange', visibilityListener)
+      window.removeEventListener('blur', endListener)
+    })
+    $resizer.get(0).addEventListener(downEvent, startListener)
 
     $navBar.on('contextmenu', (e) => e.preventDefault())
     this.$container.on('click', (e) => e.stopPropagation())
