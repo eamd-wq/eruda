@@ -8,6 +8,19 @@ function active(rule) {
   return rule.enabled && MOCK_PARTS.some(({ id }) => rule.parts[id].enabled)
 }
 
+function ruleState(rule) {
+  if (!active(rule)) return t('Paused')
+  let state = t('Active')
+  if (rule.parts.responseBody.enabled) {
+    state +=
+      ' · ' +
+      t(rule.sendRequest ? 'Real request' : 'Local response') +
+      (rule.delay ? ' · ' + rule.delay + ' ms' : '') +
+      (rule.status !== 200 ? ' · HTTP ' + rule.status : '')
+  }
+  return state
+}
+
 function switchHtml(className, checked, label, attributes = '') {
   return `<label class="${c('mock-switch')}">
     <input class="${c(
@@ -71,7 +84,16 @@ export default class MockManager {
     this._$el.addClass(c('mock-panel-visible'))
   }
   _onStoreChange = () => {
-    if (this._view === 'manager') this._renderManager()
+    if (this._view !== 'manager') return
+    if (this._store.error || this._$el.get(0).querySelector(c('.mock-reset'))) {
+      this._renderManager()
+      return
+    }
+    const rules = this._store.rules
+    this._$el
+      .find(c('.mock-total'))
+      .text(rules.filter(active).length + ' / ' + rules.length)
+    this._renderRules()
   }
   _back = () => {
     const leave = () => {
@@ -139,18 +161,74 @@ export default class MockManager {
       (rule) =>
         (rule.method + ' ' + rule.url).toLowerCase().indexOf(filter) !== -1
     )
-    const html = rules.length
-      ? rules
-          .map(
-            (rule) => `<div class="${c('mock-rule')} ${
-              active(rule) ? c('mock-rule-active') : ''
-            }">
+    const list = this._$el.find(c('.mock-rules')).get(0)
+    if (!rules.length) {
+      list.innerHTML = `<div class="${c('mock-empty')}"><span class="${c(
+        'icon-tool'
+      )}"></span><strong>${t(
+        this._store.rules.length ? 'No matching rules' : 'No mock rules yet'
+      )}</strong><span>${t(
+        'Open a request and tap the mock icon to get started.'
+      )}</span></div>`
+      return
+    }
+    /** 按规则 ID 复用卡片和控件，保留滚动位置、焦点及筛选输入。 */
+    const cards = new Map(
+      Array.from(list.children, (card) => [card.getAttribute('data-id'), card])
+    )
+    rules.forEach((rule, index) => {
+      let card = cards.get(rule.id)
+      if (!card) {
+        const container = document.createElement('div')
+        container.innerHTML = this._renderRule(rule)
+        card = container.firstElementChild
+      }
+      this._updateRule(card, rule)
+      const current = list.children[index]
+      if (current !== card) list.insertBefore(card, current || null)
+      cards.delete(rule.id)
+    })
+    cards.forEach((card) => card.remove())
+  }
+  _updateRule(card, rule) {
+    const enabled = active(rule)
+    if (card.classList.contains(c('mock-rule-active')) !== enabled)
+      card.classList.toggle(c('mock-rule-active'), enabled)
+    const text = {
+      'mock-method': rule.method,
+      'mock-url': rule.url,
+      'mock-rule-state': ruleState(rule),
+    }
+    Object.keys(text).forEach((name) => {
+      const element = card.querySelector(c('.' + name))
+      if (element.textContent !== text[name]) element.textContent = text[name]
+    })
+    const toggle = card.querySelector(c('.mock-rule-toggle'))
+    if (toggle.checked !== rule.enabled) toggle.checked = rule.enabled
+    const label = t('Enable interface') + ' ' + rule.url
+    if (toggle.getAttribute('aria-label') !== label)
+      toggle.setAttribute('aria-label', label)
+    card.querySelectorAll(c('.mock-part-toggle')).forEach((input) => {
+      const part = rule.parts[input.getAttribute('data-part')]
+      if (input.checked !== part.enabled) input.checked = part.enabled
+      const badge = input.parentElement.querySelector('small')
+      if (part.mode === 'js' && !badge) {
+        const badge = document.createElement('small')
+        badge.textContent = 'JS'
+        input.parentElement.appendChild(badge)
+      } else if (part.mode !== 'js' && badge) badge.remove()
+    })
+  }
+  _renderRule(rule) {
+    return `<div class="${c('mock-rule')} ${
+      active(rule) ? c('mock-rule-active') : ''
+    }" data-id="${escape(rule.id)}">
       <div class="${c('mock-rule-heading')}">
         <div class="${c('mock-interface')}"><span class="${c(
-              'mock-method'
-            )}">${escape(rule.method)}</span><span class="${c(
-              'mock-url'
-            )}">${escape(rule.url)}</span></div>
+      'mock-method'
+    )}">${escape(rule.method)}</span><span class="${c('mock-url')}">${escape(
+      rule.url
+    )}</span></div>
         ${switchHtml(
           'mock-rule-toggle',
           rule.enabled,
@@ -159,27 +237,20 @@ export default class MockManager {
         )}
       </div>
       <div class="${c('mock-rule-parts')}">${MOCK_PARTS.map(
-              ({ id, label }) => `<label class="${c('mock-part-option')}">
+      ({ id, label }) => `<label class="${c('mock-part-option')}">
         <input class="${c(
           'mock-part-toggle'
         )}" type="checkbox" data-id="${escape(rule.id)}" data-part="${id}" ${
-                rule.parts[id].enabled ? 'checked' : ''
-              }>
+        rule.parts[id].enabled ? 'checked' : ''
+      }>
         <span>${t(label)}</span>${
-                rule.parts[id].mode === 'js' ? '<small>JS</small>' : ''
-              }
+        rule.parts[id].mode === 'js' ? '<small>JS</small>' : ''
+      }
       </label>`
-            ).join('')}</div>
+    ).join('')}</div>
       <div class="${c('mock-rule-actions')}"><span class="${c(
-              'mock-rule-state'
-            )}">${active(rule) ? t('Active') : t('Paused')}${
-              active(rule) && rule.parts.responseBody.enabled
-                ? ' · ' +
-                  t(rule.sendRequest ? 'Real request' : 'Local response') +
-                  (rule.delay ? ' · ' + rule.delay + ' ms' : '') +
-                  (rule.status !== 200 ? ' · HTTP ' + rule.status : '')
-                : ''
-            }</span>
+      'mock-rule-state'
+    )}">${ruleState(rule)}</span>
         <button type="button" class="${c(
           'mock-text-button mock-edit'
         )}" data-id="${escape(rule.id)}">${t('Edit')}</button>
@@ -188,16 +259,6 @@ export default class MockManager {
         )}" data-id="${escape(rule.id)}">${t('Delete')}</button>
       </div>
     </div>`
-          )
-          .join('')
-      : `<div class="${c('mock-empty')}"><span class="${c(
-          'icon-tool'
-        )}"></span><strong>${t(
-          this._store.rules.length ? 'No matching rules' : 'No mock rules yet'
-        )}</strong><span>${t(
-          'Open a request and tap the mock icon to get started.'
-        )}</span></div>`
-    this._$el.find(c('.mock-rules')).html(html)
   }
   _renderEditor() {
     const rule = this._draft
